@@ -1,10 +1,18 @@
-# @entrybit/sdk
+# EntryBit Node.js SDK
+
+[![npm version](https://img.shields.io/npm/v/%40entrybit%2Fsdk.svg)](https://www.npmjs.com/package/@entrybit/sdk)
+[![CI](https://github.com/entrybit-hq/entrybit-sdk-js/actions/workflows/ci.yml/badge.svg)](https://github.com/entrybit-hq/entrybit-sdk-js/actions/workflows/ci.yml)
+[![License](https://img.shields.io/npm/l/%40entrybit%2Fsdk.svg)](./LICENSE)
 
 The official TypeScript SDK for the [EntryBit API](https://docs.entrybit.net) — guest passes, the organization member directory, and facilities.
 
 - Typed end to end: generated from the published [OpenAPI 3.1 spec](https://docs.entrybit.net/openapi.json), with an ergonomic handwritten layer on top.
-- Works in Node.js ≥ 20 (built-in `fetch`), ships ESM and CommonJS.
+- Ships ESM and CommonJS builds with full type definitions.
 - Zero runtime dependencies.
+
+## Requirements
+
+Node.js 20 or later (the SDK uses the built-in `fetch`). Other runtimes work if a WHATWG `fetch` is available — or pass your own via `new EntryBit({ fetch })`.
 
 ## Installation
 
@@ -12,38 +20,51 @@ The official TypeScript SDK for the [EntryBit API](https://docs.entrybit.net) �
 npm install @entrybit/sdk
 ```
 
-## 5-minute quickstart
+## Usage
 
-1. In the EntryBit console, go to **Settings → API keys** and create a key. Choose the least-privilege `org:*` scopes you need — the secret (`eb_sk_…`) is shown once.
-2. Export it (never hard-code secrets):
+The client needs a credential for your organization. In the EntryBit console, go to **Settings → API keys** and create a key with the least-privilege `org:*` scopes you need — the secret (`eb_sk_…`) is shown once. Export it rather than hard-coding it:
 
-   ```sh
-   export ENTRYBIT_API_KEY="eb_sk_..."
-   ```
+```sh
+export ENTRYBIT_API_KEY="eb_sk_..."
+```
 
-3. List your members and create a guest pass:
+Then list your members and create a guest pass:
 
-   ```ts
-   import { EntryBit } from "@entrybit/sdk";
+```ts
+import { EntryBit } from "@entrybit/sdk";
 
-   const entrybit = new EntryBit({ apiKey: process.env.ENTRYBIT_API_KEY! });
+const entrybit = new EntryBit({ apiKey: process.env.ENTRYBIT_API_KEY! });
 
-   // Walk the whole member directory (cursor pagination handled for you).
-   for await (const member of entrybit.org.members.iterate({ fields: ["name", "department"] })) {
-     console.log(member.name, "—", member.department ?? "no department");
-   }
+// Walk the whole member directory (cursor pagination handled for you).
+for await (const member of entrybit.org.members.iterate({ fields: ["name", "department"] })) {
+  console.log(member.name, "—", member.department ?? "no department");
+}
 
-   // Create a guest pass — the guest receives it by email and/or SMS.
-   const created = await entrybit.org.passes.create({
-     first_name: "Dana",
-     last_name: "Levy",
-     email: "dana@example.com",
-     arrival_date: "2026-08-12",
-     arrival_time: "14:30",
-     facility_id: 1,
-   });
-   console.log("Pass created:", created.public_id, created.pass_link);
-   ```
+// Create a guest pass — the guest receives it by email and/or SMS.
+const created = await entrybit.org.passes.create({
+  first_name: "Dana",
+  last_name: "Levy",
+  email: "dana@example.com",
+  arrival_date: "2026-08-12",
+  arrival_time: "14:30",
+  facility_id: 1,
+});
+console.log("Pass created:", created.public_id, created.pass_link);
+```
+
+### Available resources
+
+Namespaces mirror the API paths under `/api/v1`:
+
+| Namespace | Endpoint | Auth |
+| --- | --- | --- |
+| `entrybit.passes` | `/api/v1/passes` — your own guest passes: `list`, `iterate`, `get`, `create`, `revoke` | OAuth token |
+| `entrybit.org.passes` | `/api/v1/org/passes` — organization-wide passes: `list`, `iterate`, `create`, `revoke` | API key |
+| `entrybit.org.members` | `/api/v1/org/members` — member directory: `list`, `iterate`, `get` | API key or OAuth token |
+| `entrybit.org.facilities` | `/api/v1/org/facilities` — `list` | API key |
+| `entrybit.me` | `/api/v1/me` — the authenticated member: `get` | OAuth token |
+| `entrybit.invites` | `/api/v1/invites` — pending invites: `list` | OAuth token |
+| `entrybit.facilities` | `/api/v1/facilities` — facilities you may invite guests to: `list` | OAuth token |
 
 ## Authentication
 
@@ -72,27 +93,29 @@ const entrybit = new EntryBit({ accessToken: token });
 const entrybit = new EntryBit({ getAccessToken: async () => tokenStore.current() });
 ```
 
-### Base URL
+### Scopes
 
-Requests go to `https://api.entrybit.net` by default. Override it for testing:
+Delegated (OAuth) scopes:
 
-```ts
-const entrybit = new EntryBit({ baseUrl: "http://localhost:8001" });
-```
+| Scope | Grants |
+| --- | --- |
+| `openid` / `profile` / `email` | Identity claims |
+| `offline_access` | Refresh token |
+| `passes:read` | View your guest passes and facilities |
+| `passes:write` | Create and revoke your guest passes |
+| `invites:read` | View invitations addressed to you |
+| `member:read` | Your member profile, organization and apartment details |
+| `members:read` | View your organization's member directory (contact tier) |
 
-## Resources
+Organization API-key scopes are selected when creating the key in **Settings → API keys** (least privilege), including:
 
-Namespaces mirror the API paths under `/api/v1`:
+| Scope | Grants |
+| --- | --- |
+| `org:passes:write` | Create and revoke organization guest passes |
+| `org:members:read` | Member directory, basic tier |
+| `org:members:contact:read` | Member directory, adds `email` and `phone` |
 
-| Namespace | Endpoint | Auth |
-| --- | --- | --- |
-| `entrybit.passes` | `/api/v1/passes` — your own guest passes: `list`, `iterate`, `get`, `create`, `revoke` | OAuth token |
-| `entrybit.org.passes` | `/api/v1/org/passes` — organization-wide passes: `list`, `iterate`, `create`, `revoke` | API key |
-| `entrybit.org.members` | `/api/v1/org/members` — member directory: `list`, `iterate`, `get` | API key or OAuth token |
-| `entrybit.org.facilities` | `/api/v1/org/facilities` — `list` | API key |
-| `entrybit.me` | `/api/v1/me` — the authenticated member: `get` | OAuth token |
-| `entrybit.invites` | `/api/v1/invites` — pending invites: `list` | OAuth token |
-| `entrybit.facilities` | `/api/v1/facilities` — facilities you may invite guests to: `list` | OAuth token |
+See the [API reference](https://docs.entrybit.net) for the complete, current list.
 
 ## Pagination
 
@@ -162,35 +185,49 @@ try {
 
 All of them expose `status`, `code`, `body`, and `headers` where available.
 
-### Retries
+## Retries & timeouts
 
-Idempotent `GET` requests are automatically retried on `429` and `5xx` with exponential backoff and jitter, honoring `Retry-After`. Writes are never retried by default. Tune with `maxRetries` (default `2`; `0` disables).
+Idempotent `GET` requests are automatically retried on `429` and `5xx` with exponential backoff and jitter, honoring `Retry-After`. Writes are never retried by default. Each attempt is subject to a per-request timeout (30 seconds by default); a request that never produces a response throws `ConnectionError`:
 
-## Scopes
+```ts
+const entrybit = new EntryBit({
+  apiKey: process.env.ENTRYBIT_API_KEY!,
+  maxRetries: 3, // default 2; 0 disables retries
+  timeoutMs: 10_000, // default 30_000
+});
+```
 
-Delegated (OAuth) scopes:
+## Configuration
 
-| Scope | Grants |
-| --- | --- |
-| `openid` / `profile` / `email` | Identity claims |
-| `offline_access` | Refresh token |
-| `passes:read` | View your guest passes and facilities |
-| `passes:write` | Create and revoke your guest passes |
-| `invites:read` | View invitations addressed to you |
-| `member:read` | Your member profile, organization and apartment details |
-| `members:read` | View your organization's member directory (contact tier) |
+All client options:
 
-Organization API-key scopes are selected when creating the key in **Settings → API keys** (least privilege), including:
+| Option | Default | Description |
+| --- | --- | --- |
+| `apiKey` | — | Organization API key (`eb_sk_…`). Mutually exclusive with the token options. |
+| `apiKeyHeader` | `"authorization"` | How the key is sent: `Authorization: Bearer` or `X-API-Key`. |
+| `accessToken` | — | Static user-delegated OAuth2 access token. |
+| `getAccessToken` | — | Callback returning a fresh access token before each request. |
+| `baseUrl` | `https://api.entrybit.net` | API origin; override for testing. |
+| `maxRetries` | `2` | Retry attempts after the first try, for eligible requests. `0` disables. |
+| `timeoutMs` | `30_000` | Per-request timeout in milliseconds. |
+| `fetch` | `globalThis.fetch` | Custom `fetch` implementation. |
+| `defaultHeaders` | `{}` | Extra headers sent with every request. |
 
-| Scope | Grants |
-| --- | --- |
-| `org:passes:write` | Create and revoke organization guest passes |
-| `org:members:read` | Member directory, basic tier |
-| `org:members:contact:read` | Member directory, adds `email` and `phone` |
+For example, to point the client at a local server:
 
-See the [API reference](https://docs.entrybit.net) for the complete, current list.
+```ts
+const entrybit = new EntryBit({ baseUrl: "http://localhost:8001" });
+```
 
-## Regenerating the types
+## Development
+
+```sh
+npm ci             # install
+npm run typecheck  # tsc --noEmit
+npm run lint       # eslint
+npm test           # vitest
+npm run build      # tsup (ESM + CJS)
+```
 
 `src/generated/schema.d.ts` is generated from the committed `spec/openapi.json` and checked for drift in CI:
 
@@ -199,9 +236,11 @@ npm run generate     # regenerate types from the committed spec
 npm run regenerate   # refetch the published spec, then regenerate
 ```
 
-## Requirements
+Every code sample in this README is transcribed in `test/readme-samples.ts` and typechecked in CI, so samples cannot silently drift from the exported types.
 
-- Node.js ≥ 20 (uses the built-in `fetch`). Other runtimes work if a WHATWG `fetch` is available — or pass your own via `new EntryBit({ fetch })`.
+## Contributing
+
+See [CONTRIBUTING.md](./CONTRIBUTING.md) for local setup, the development workflow, and pull request expectations. Report security issues per [SECURITY.md](./SECURITY.md) — never in public issues.
 
 ## License
 

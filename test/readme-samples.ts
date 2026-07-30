@@ -17,7 +17,7 @@ import {
 declare const tokenStore: { current(): string };
 declare const token: string;
 
-// README § 5-minute quickstart
+// README § Usage
 export async function quickstart(): Promise<void> {
   const entrybit = new EntryBit({ apiKey: process.env.ENTRYBIT_API_KEY! });
 
@@ -48,8 +48,21 @@ export function authModes(): EntryBit[] {
     }),
     new EntryBit({ accessToken: token }),
     new EntryBit({ getAccessToken: async () => tokenStore.current() }),
-    new EntryBit({ baseUrl: "http://localhost:8001" }),
   ];
+}
+
+// README § Retries & timeouts
+export function retriesAndTimeouts(): EntryBit {
+  return new EntryBit({
+    apiKey: process.env.ENTRYBIT_API_KEY!,
+    maxRetries: 3, // default 2; 0 disables retries
+    timeoutMs: 10_000, // default 30_000
+  });
+}
+
+// README § Configuration — pointing the client at a local server
+export function baseUrlOverride(): EntryBit {
+  return new EntryBit({ baseUrl: "http://localhost:8001" });
 }
 
 // README § Pagination
