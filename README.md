@@ -244,4 +244,4 @@ See [CONTRIBUTING.md](./CONTRIBUTING.md) for local setup, the development workfl
 
 ## License
 
-[MIT](./LICENSE) © EntryBit
+Copyright EntryBit. Released under the [MIT License](./LICENSE).
