@@ -1,0 +1,26 @@
+# Weekly dependency updates, grouped so version bumps arrive as one
+# reviewable pull request per ecosystem instead of a trickle.
+version: 2
+updates:
+  - package-ecosystem: npm
+    directory: "/"
+    schedule:
+      interval: weekly
+      day: monday
+    groups:
+      dev-dependencies:
+        dependency-type: development
+        patterns:
+          - "*"
+    # The SDK has zero runtime dependencies; if one ever appears it will
+    # surface as its own ungrouped pull request and deserve scrutiny.
+
+  - package-ecosystem: github-actions
+    directory: "/"
+    schedule:
+      interval: weekly
+      day: monday
+    groups:
+      actions:
+        patterns:
+          - "*"
