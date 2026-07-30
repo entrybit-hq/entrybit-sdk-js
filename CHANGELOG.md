@@ -4,6 +4,15 @@ All notable changes to this project are documented in this file. It is
 maintained by [release-please](https://github.com/googleapis/release-please)
 from conventional commits — do not edit it by hand.
 
+## [0.2.0](https://github.com/entrybit-hq/entrybit-sdk-js/compare/v0.1.0...v0.2.0) (2026-07-30)
+
+
+### Features
+
+* initial release of @entrybit/sdk v0.1.0 ([4fa802f](https://github.com/entrybit-hq/entrybit-sdk-js/commit/4fa802fc7a03c41a1f8007874279e917573d862f))
+* per-request options, OAuth endpoints, module restructure, release pipeline fixes ([e0a67c5](https://github.com/entrybit-hq/entrybit-sdk-js/commit/e0a67c592a51eadd607f310e1e0b2ab10f3b9929))
+* per-request options, OAuth endpoints, module restructure, release pipeline fixes ([4011072](https://github.com/entrybit-hq/entrybit-sdk-js/commit/4011072e192f398ec30bb328c622f1425e981260))
+
 ## [0.1.0] - 2026-07-30
 
 ### Added
