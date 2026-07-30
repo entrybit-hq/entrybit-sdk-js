@@ -43,7 +43,7 @@
   },
   "files": [
     "dist",
-    "spec/openapi.json"
+    "CHANGELOG.md"
   ],
   "scripts": {
     "build": "tsup",
@@ -54,7 +54,8 @@
     "spec:fetch": "node scripts/fetch-spec.mjs",
     "generate": "openapi-typescript spec/openapi.json -o src/generated/schema.d.ts --default-non-nullable=false",
     "regenerate": "npm run spec:fetch && npm run generate",
-    "prepublishOnly": "npm run typecheck && npm run test && npm run build"
+    "pack:verify": "node scripts/verify-pack.mjs",
+    "prepublishOnly": "npm run typecheck && npm run test && npm run build && npm run pack:verify"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
