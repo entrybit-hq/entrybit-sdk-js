@@ -1,0 +1,54 @@
+name: Publish
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: read
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    environment: npm
+    permissions:
+      contents: read
+      # Needed for npm provenance attestation.
+      id-token: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          registry-url: https://registry.npmjs.org
+
+      - name: Install
+        run: npm ci
+
+      - name: Generate types from committed spec
+        run: npm run generate
+
+      - name: Check generated types are committed (no drift)
+        run: git diff --exit-code -- src/generated
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Test
+        run: npm test
+
+      - name: Build
+        run: npm run build
+
+      - name: Publish to npm
+        run: npm publish --provenance --access public
+        env:
+          # An npm automation token authorized to publish @entrybit/sdk;
+          # set as a repository secret by an administrator (see CONTRIBUTING.md).
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
