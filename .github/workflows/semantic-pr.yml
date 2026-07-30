@@ -8,7 +8,7 @@ name: Semantic PR title
 # PR code — the action only reads PR metadata.
 on:
   pull_request_target:
-    types: [opened, edited, synchronize]
+    types: [opened, edited, synchronize, reopened]
 
 permissions:
   pull-requests: read
