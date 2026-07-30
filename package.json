@@ -4,7 +4,7 @@
   "description": "Official TypeScript SDK for the EntryBit API — guest passes, member directory, facilities, and OAuth.",
   "license": "MIT",
   "author": "EntryBit",
-  "homepage": "https://docs.entrybit.net",
+  "homepage": "https://docs.entrybit.net/resources/sdk/",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/entrybit-hq/entrybit-sdk-js.git"
