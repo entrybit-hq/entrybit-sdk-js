@@ -4,7 +4,7 @@
 [![CI](https://github.com/entrybit-hq/entrybit-sdk-js/actions/workflows/ci.yml/badge.svg)](https://github.com/entrybit-hq/entrybit-sdk-js/actions/workflows/ci.yml)
 [![License](https://img.shields.io/npm/l/%40entrybit%2Fsdk.svg)](./LICENSE)
 
-The official TypeScript SDK for the [EntryBit API](https://docs.entrybit.net) — guest passes, the organization member directory, and facilities.
+The official TypeScript SDK for the [EntryBit API](https://docs.entrybit.net) — guest passes, the organization member directory, facilities, and OAuth.
 
 - Typed end to end: generated from the published [OpenAPI 3.1 spec](https://docs.entrybit.net/openapi.json), with an ergonomic handwritten layer on top.
 - Ships ESM and CommonJS builds with full type definitions.
@@ -12,7 +12,7 @@ The official TypeScript SDK for the [EntryBit API](https://docs.entrybit.net) �
 
 ## Requirements
 
-Node.js 20 or later (the SDK uses the built-in `fetch`). Other runtimes work if a WHATWG `fetch` is available — or pass your own via `new EntryBit({ fetch })`.
+Node.js 20.19 or later (the SDK uses the built-in `fetch`). Other runtimes — Cloudflare Workers, Deno, edge functions — work wherever a WHATWG `fetch` is available, or pass your own via `new EntryBit({ fetch })`. TypeScript 5.1 or later for the bundled types.
 
 ## Installation
 
@@ -28,12 +28,12 @@ The client needs a credential for your organization. In the EntryBit console, go
 export ENTRYBIT_API_KEY="eb_sk_..."
 ```
 
-Then list your members and create a guest pass:
+The client reads `ENTRYBIT_API_KEY` automatically. Then list your members and create a guest pass:
 
 ```ts
 import { EntryBit } from "@entrybit/sdk";
 
-const entrybit = new EntryBit({ apiKey: process.env.ENTRYBIT_API_KEY! });
+const entrybit = new EntryBit(); // uses ENTRYBIT_API_KEY
 
 // Walk the whole member directory (cursor pagination handled for you).
 for await (const member of entrybit.org.members.iterate({ fields: ["name", "department"] })) {
@@ -52,9 +52,11 @@ const created = await entrybit.org.passes.create({
 console.log("Pass created:", created.public_id, created.pass_link);
 ```
 
+Runnable examples live in [`examples/`](./examples).
+
 ### Available resources
 
-Namespaces mirror the API paths under `/api/v1`:
+Namespaces mirror the API paths:
 
 | Namespace | Endpoint | Auth |
 | --- | --- | --- |
@@ -65,10 +67,21 @@ Namespaces mirror the API paths under `/api/v1`:
 | `entrybit.me` | `/api/v1/me` — the authenticated member: `get` | OAuth token |
 | `entrybit.invites` | `/api/v1/invites` — pending invites: `list` | OAuth token |
 | `entrybit.facilities` | `/api/v1/facilities` — facilities you may invite guests to: `list` | OAuth token |
+| `entrybit.oauth` | `/api/oauth/*` — `exchangeCode`, `refresh`, `revoke`, `introspect`, `userinfo` | Body params (`userinfo`: OAuth token) |
+
+For endpoints the typed surface does not model yet, `entrybit.request()` sends a request through the same auth/retry/error pipeline:
+
+```ts
+const raw = await entrybit.request<{ success: boolean }>({
+  method: "GET",
+  path: "/api/v1/org/passes",
+  query: { limit: 5 },
+});
+```
 
 ## Authentication
 
-The client supports exactly one auth mode at a time (configuring more than one throws).
+The client supports exactly one auth mode at a time (configuring more than one throws). With no mode configured it falls back to the `ENTRYBIT_API_KEY` environment variable, and throws a descriptive error if that is unset too — pass `apiKey: null` to explicitly create an unauthenticated client (say, against a local mock server).
 
 ### Organization API key (server-to-server)
 
@@ -83,14 +96,31 @@ const entrybit = new EntryBit({
 });
 ```
 
+API keys are secrets: the client refuses to run with one in a browser-like environment (use user-delegated OAuth tokens there; `dangerouslyAllowBrowser: true` overrides at your own risk).
+
 ### OAuth2 access token (user-delegated)
 
-For apps acting on behalf of an EntryBit user (authorization-code flow with PKCE — see the [OAuth guide](https://docs.entrybit.net)). Pass a static token, or a callback so the SDK always uses your freshest token:
+For apps acting on behalf of an EntryBit user (authorization-code flow with PKCE — see the [OAuth guide](https://docs.entrybit.net)). Pass a static token, or a callback so the SDK always uses your freshest token (it is invoked per attempt and single-flighted across concurrent requests):
 
 ```ts
 const entrybit = new EntryBit({ accessToken: token });
 // or, if your app refreshes tokens:
 const entrybit = new EntryBit({ getAccessToken: async () => tokenStore.current() });
+```
+
+The `entrybit.oauth` namespace covers the token lifecycle itself — exchanging the authorization code, refreshing (refresh tokens rotate on every use), revocation, introspection, and OIDC UserInfo:
+
+```ts
+const tokens = await entrybit.oauth.exchangeCode({
+  code,
+  redirectUri: "https://app.example.com/callback",
+  codeVerifier: verifier,
+  clientId: process.env.ENTRYBIT_CLIENT_ID!,
+});
+const fresh = await entrybit.oauth.refresh({
+  refreshToken: tokens.refresh_token!,
+  clientId: process.env.ENTRYBIT_CLIENT_ID!,
+});
 ```
 
 ### Scopes
@@ -111,9 +141,11 @@ Organization API-key scopes are selected when creating the key in **Settings →
 
 | Scope | Grants |
 | --- | --- |
+| `org:passes:read` | List organization guest passes |
 | `org:passes:write` | Create and revoke organization guest passes |
 | `org:members:read` | Member directory, basic tier |
 | `org:members:contact:read` | Member directory, adds `email` and `phone` |
+| `org:facilities:read` | List organization facilities |
 
 See the [API reference](https://docs.entrybit.net) for the complete, current list.
 
@@ -150,6 +182,7 @@ Every failure throws a typed subclass of `EntryBitError`:
 import {
   AuthenticationError,
   PermissionError,
+  NotFoundError,
   RateLimitError,
   ValidationError,
   APIError,
@@ -161,11 +194,13 @@ try {
   if (err instanceof PermissionError) {
     console.error("Key is missing scope:", err.missingScope); // e.g. "org:members:contact:read"
   } else if (err instanceof RateLimitError) {
-    console.error("Rate limited; retry in", err.retryAfter, "seconds");
+    console.error("Rate limited; retry in", err.retryAfter ?? "a few", "seconds");
   } else if (err instanceof AuthenticationError) {
     console.error("Invalid or expired credential");
   } else if (err instanceof ValidationError) {
     console.error("Bad request:", err.message);
+  } else if (err instanceof NotFoundError) {
+    console.error("No such resource");
   } else if (err instanceof APIError) {
     console.error("API error", err.status, err.body);
   } else {
@@ -178,16 +213,22 @@ try {
 | --- | --- | --- |
 | `AuthenticationError` | 401 | RFC 6750 `invalid_token` |
 | `PermissionError` | 403 | `missingScope` parsed from `WWW-Authenticate` |
-| `RateLimitError` | 429 | `retryAfter` (seconds, from `Retry-After`) |
+| `NotFoundError` | 404 | subclass of `APIError` |
+| `ConflictError` | 409 | subclass of `APIError` |
+| `RateLimitError` | 429 | `retryAfter` (seconds, from `Retry-After` — not sent by every endpoint) |
 | `ValidationError` | 400 | server message |
+| `UnprocessableEntityError` | 422 | subclass of `ValidationError` |
+| `InternalServerError` | 5xx | subclass of `APIError` |
 | `APIError` | other non-2xx | `status`, `code`, `body` |
-| `ConnectionError` | — | no HTTP response (network failure, timeout) |
+| `TimeoutError` | — | `timeoutMs` elapsed; subclass of `ConnectionError` |
+| `ConnectionError` | — | no HTTP response (network failure) |
+| `UserAbortError` | — | your `AbortSignal` fired; never retried |
 
 All of them expose `status`, `code`, `body`, and `headers` where available.
 
 ## Retries & timeouts
 
-Idempotent `GET` requests are automatically retried on `429` and `5xx` with exponential backoff and jitter, honoring `Retry-After`. Writes are never retried by default. Each attempt is subject to a per-request timeout (30 seconds by default); a request that never produces a response throws `ConnectionError`:
+Idempotent `GET` requests are automatically retried on `429`, `5xx` and network failures with exponential backoff and jitter, honoring `Retry-After` up to a 30-second cap — beyond the cap the error is surfaced immediately with the unclamped `retryAfter`. Writes (including revokes) are never retried automatically. Each attempt is subject to a per-request timeout (30 seconds by default):
 
 ```ts
 const entrybit = new EntryBit({
@@ -197,36 +238,74 @@ const entrybit = new EntryBit({
 });
 ```
 
+### Per-request options
+
+Every method accepts a trailing options argument to cancel, re-time, or decorate a single call:
+
+```ts
+const controller = new AbortController();
+const page = await entrybit.org.members.list(
+  { limit: 100 },
+  {
+    signal: controller.signal, // cancel from your side (throws UserAbortError)
+    timeoutMs: 5_000, // override the client default for this call
+    maxRetries: 0, // and the retry budget
+    headers: { "x-trace-id": traceId }, // extra headers for this call
+  },
+);
+```
+
 ## Configuration
 
 All client options:
 
 | Option | Default | Description |
 | --- | --- | --- |
-| `apiKey` | — | Organization API key (`eb_sk_…`). Mutually exclusive with the token options. |
+| `apiKey` | `ENTRYBIT_API_KEY` env var | Organization API key (`eb_sk_…`). `null` = explicitly unauthenticated. Mutually exclusive with the token options. |
 | `apiKeyHeader` | `"authorization"` | How the key is sent: `Authorization: Bearer` or `X-API-Key`. |
 | `accessToken` | — | Static user-delegated OAuth2 access token. |
-| `getAccessToken` | — | Callback returning a fresh access token before each request. |
+| `getAccessToken` | — | Callback returning a fresh access token (called per attempt, single-flighted). |
 | `baseUrl` | `https://api.entrybit.net` | API origin; override for testing. |
 | `maxRetries` | `2` | Retry attempts after the first try, for eligible requests. `0` disables. |
 | `timeoutMs` | `30_000` | Per-request timeout in milliseconds. |
 | `fetch` | `globalThis.fetch` | Custom `fetch` implementation. |
-| `defaultHeaders` | `{}` | Extra headers sent with every request. |
+| `fetchOptions` | — | Extra `RequestInit` fields for every call (e.g. an undici `dispatcher` for proxies/keep-alive). |
+| `defaultHeaders` | `{}` | Extra headers sent with every request (case-insensitive). |
+| `telemetry` | `true` | Send the `x-entrybit-client` runtime header. `false` omits it entirely. |
+| `dangerouslyAllowBrowser` | `false` | Allow an API key in a browser-like environment. |
+| `logger` / `logLevel` | `console` / `"warn"` | `"info"` logs retry decisions, `"debug"` logs each request — never headers or bodies. |
 
 For example, to point the client at a local server:
 
 ```ts
-const entrybit = new EntryBit({ baseUrl: "http://localhost:8001" });
+const entrybit = new EntryBit({ apiKey: null, baseUrl: "http://localhost:8001" });
+```
+
+## Privacy — exactly what the SDK sends
+
+The SDK talks only to your configured `baseUrl` (redirects are treated as errors, so a request can never be forwarded elsewhere). Beyond your request data and credential, it adds two headers:
+
+| Header | Content | Control |
+| --- | --- | --- |
+| `User-Agent` | `entrybit-sdk-js/<version>` — SDK version only | Override via `defaultHeaders` |
+| `x-entrybit-client` | SDK version, runtime version, OS/arch (e.g. `entrybit-sdk-js/0.1.0 node/22.14.0 (linux; x64)`) — used to triage support issues | Disable with `telemetry: false` |
+
+There is no other telemetry of any kind: no analytics, no phone-home, no error reporting. Log output (`logLevel`) never includes headers or bodies, and SDK errors never carry your request credentials — only response data:
+
+```ts
+const entrybit = new EntryBit({ apiKey: process.env.ENTRYBIT_API_KEY!, telemetry: false });
 ```
 
 ## Development
 
 ```sh
-npm ci             # install
-npm run typecheck  # tsc --noEmit
-npm run lint       # eslint
-npm test           # vitest
-npm run build      # tsup (ESM + CJS)
+npm ci                 # install
+npm run typecheck      # tsc --noEmit
+npm run lint           # eslint (type-aware)
+npm test               # vitest
+npm run test:coverage  # vitest + enforced coverage thresholds
+npm run build          # tsup (ESM + CJS)
+npm run check:exports  # publint + arethetypeswrong on the packed tarball
 ```
 
 `src/generated/schema.d.ts` is generated from the committed `spec/openapi.json` and checked for drift in CI:

@@ -1,0 +1,7 @@
+# Fallback owner for everything in the repository.
+* @ronimm38
+
+# Release and publishing configuration changes need the same owner's eyes.
+/.github/workflows/ @ronimm38
+/release-please-config.json @ronimm38
+/package.json @ronimm38

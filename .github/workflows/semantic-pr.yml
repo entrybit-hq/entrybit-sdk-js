@@ -1,0 +1,22 @@
+name: Semantic PR title
+
+# release-please derives version bumps and changelog entries from conventional
+# commits; squash-merges use the PR title, so an unconventional title means no
+# changelog entry and no release. This gate keeps titles conventional.
+#
+# pull_request_target is safe here: the workflow never checks out or executes
+# PR code — the action only reads PR metadata.
+on:
+  pull_request_target:
+    types: [opened, edited, synchronize]
+
+permissions:
+  pull-requests: read
+
+jobs:
+  title:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: amannn/action-semantic-pull-request@48f256284bd46cdaab1048c3721360e808335d50 # v6.1.1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

@@ -1,5 +1,4 @@
-/** Values accepted in a request's `query` map. */
-export type QueryValue = string | number | boolean | readonly string[] | null | undefined;
+import type { QueryValue } from "../types/requests.js";
 
 /**
  * Serializes a query map to a `?`-prefixed string. `undefined`/`null` values

@@ -36,6 +36,21 @@ describe("query serialization", () => {
     expect(url.searchParams.get("fields")).toBe("name,email");
   });
 
+  it("serializes booleans and omits null and empty arrays", async () => {
+    const { fn, requests } = mockFetch({ body: OK_PAGE });
+    const eb = new EntryBit({ apiKey: "eb_sk_test", fetch: fn });
+    await eb.request({
+      method: "GET",
+      path: "/api/v1/org/passes",
+      query: { active: true, archived: false, cursor: null, fields: [] },
+    });
+    const url = new URL(requests[0]!.url);
+    expect(url.searchParams.get("active")).toBe("true");
+    expect(url.searchParams.get("archived")).toBe("false");
+    expect(url.searchParams.has("cursor")).toBe(false);
+    expect(url.searchParams.has("fields")).toBe(false);
+  });
+
   it("omits undefined params entirely", async () => {
     const { fn, requests } = mockFetch({ body: OK_PAGE });
     const eb = new EntryBit({ apiKey: "eb_sk_test", fetch: fn });

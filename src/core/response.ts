@@ -1,13 +1,17 @@
 import {
   APIError,
   AuthenticationError,
+  ConflictError,
+  InternalServerError,
+  NotFoundError,
   PermissionError,
   RateLimitError,
+  UnprocessableEntityError,
   ValidationError,
   parseRetryAfter,
   parseWwwAuthenticate,
-} from "./errors.js";
-import type { EntryBitError } from "./errors.js";
+} from "../errors/index.js";
+import type { EntryBitError } from "../errors/index.js";
 
 /** Reads a response body, parsing JSON when possible and falling back to text. */
 export async function readBody(res: Response): Promise<unknown> {
@@ -85,6 +89,12 @@ export async function errorFromResponse(res: Response): Promise<EntryBitError> {
         { ...common, missingScope: challenge.scope },
       );
     }
+    case 404:
+      return new NotFoundError(messageFromBody(body, "Not found"), common);
+    case 409:
+      return new ConflictError(messageFromBody(body, "Conflict with current resource state"), common);
+    case 422:
+      return new UnprocessableEntityError(messageFromBody(body, "Validation failed"), common);
     case 429: {
       const retryAfter = parseRetryAfter(res.headers.get("retry-after"));
       return new RateLimitError(messageFromBody(body, "Rate limited"), {
@@ -93,6 +103,12 @@ export async function errorFromResponse(res: Response): Promise<EntryBitError> {
       });
     }
     default:
+      if (res.status >= 500) {
+        return new InternalServerError(
+          messageFromBody(body, `Server error (status ${res.status})`),
+          common,
+        );
+      }
       return new APIError(messageFromBody(body, `Request failed with status ${res.status}`), common);
   }
 }

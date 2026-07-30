@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import { APIError, ConnectionError, EntryBit } from "../src/index.js";
-import { HttpClient } from "../src/http.js";
+import { HttpClient } from "../src/core/http.js";
 import { mockFetch } from "./helpers.js";
 
 const OK_PAGE = { success: true, items: [], has_more: false };

@@ -83,6 +83,24 @@ describe("cursor pagination iterator", () => {
     expect(seen).toEqual([]);
   });
 
+  it("aborts if the server echoes the same cursor forever (no infinite loop)", async () => {
+    const { fn, requests } = mockFetch(
+      {
+        body: { success: true, items: [member("emp_1")], next_cursor: "stuck", has_more: true },
+      },
+      {
+        body: { success: true, items: [member("emp_2")], next_cursor: "stuck", has_more: true },
+      },
+    );
+    const eb = new EntryBit({ apiKey: "eb_sk_test", fetch: fn });
+    const seen: string[] = [];
+    await expect(async () => {
+      for await (const m of eb.org.members.iterate()) seen.push(m.id!);
+    }).rejects.toThrow(/cursor did not advance/);
+    expect(seen).toEqual(["emp_1", "emp_2"]);
+    expect(requests).toHaveLength(2);
+  });
+
   it("supports early break without exhausting pages", async () => {
     const { fn, requests } = mockFetch({
       body: {
