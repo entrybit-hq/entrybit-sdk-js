@@ -15,6 +15,8 @@ permissions:
 
 jobs:
   title:
+    # Stable, descriptive check name — referenced by the protect-main ruleset.
+    name: Conventional PR title
     runs-on: ubuntu-latest
     steps:
       - uses: amannn/action-semantic-pull-request@48f256284bd46cdaab1048c3721360e808335d50 # v6.1.1

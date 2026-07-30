@@ -1,5 +1,7 @@
 # Weekly dependency updates, grouped so version bumps arrive as one
 # reviewable pull request per ecosystem instead of a trickle.
+# The chore(deps) prefix keeps PR titles conventional-commit compliant,
+# which the semantic PR title check requires for merging.
 version: 2
 updates:
   - package-ecosystem: npm
@@ -7,6 +9,8 @@ updates:
     schedule:
       interval: weekly
       day: monday
+    commit-message:
+      prefix: "chore(deps)"
     groups:
       dev-dependencies:
         dependency-type: development
@@ -20,6 +24,8 @@ updates:
     schedule:
       interval: weekly
       day: monday
+    commit-message:
+      prefix: "chore(deps)"
     groups:
       actions:
         patterns:
