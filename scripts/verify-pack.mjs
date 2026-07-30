@@ -26,7 +26,18 @@ const out = execFileSync("npm", ["pack", "--dry-run", "--json"], {
   encoding: "utf8",
   shell: process.platform === "win32",
 });
-const [report] = JSON.parse(out);
+// npm <= 11 emits a one-element array; npm 12 emits an object keyed by
+// package name ({"@entrybit/sdk": {files: [...]}}).
+const parsed = JSON.parse(out);
+const report = Array.isArray(parsed)
+  ? parsed[0]
+  : Array.isArray(parsed?.files)
+    ? parsed
+    : Object.values(parsed ?? {})[0];
+if (!report || !Array.isArray(report.files)) {
+  console.error("Unexpected `npm pack --json` output shape; cannot verify tarball.");
+  process.exit(1);
+}
 const files = report.files.map((f) => f.path);
 
 const stray = files.filter((path) => !ALLOWED.some((re) => re.test(path)));
