@@ -55,9 +55,9 @@ Every code sample in `README.md` is transcribed into `test/readme-samples.ts`, w
 
 ## Releases
 
-Releases are automated with [release-please](https://github.com/googleapis/release-please): merging to `main` maintains a release pull request that bumps the version (including `src/version.ts`) and updates the changelog. Merging that pull request runs the `publish` job in the same workflow — gated on the `npm` environment — which re-runs every CI gate and then `npm publish --provenance --access public --ignore-scripts`.
+Releases are automated with [release-please](https://github.com/googleapis/release-please): merging to `main` maintains a release pull request that bumps the version (including `src/version.ts`) and updates the changelog. Merging that pull request runs the `publish` job in the same workflow — gated on the `npm` environment — which re-runs every CI gate and then publishes.
 
-Publishing authenticates with the `NPM_TOKEN` repository secret (an npm automation token authorized to publish `@entrybit/sdk`; only repository administrators can set or rotate it). The preferred end state is npm [trusted publishing](https://docs.npmjs.com/trusted-publishers) (OIDC): once this repository + workflow are configured as a trusted publisher on npmjs.com, delete the secret — the workflow already requests `id-token: write`.
+Publishing authenticates with npm [trusted publishing](https://docs.npmjs.com/trusted-publishers) (OIDC): the package's npm settings trust exactly this repository, workflow and environment, so no token secret exists and provenance attestations are generated automatically. Only npm package maintainers can change the trusted-publisher configuration.
 
 Note: publishing deliberately lives in `release-please.yml` rather than a tag-triggered workflow — tags created with the default `GITHUB_TOKEN` never trigger other workflows.
 
