@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Security vulnerability
+    url: https://github.com/entrybit-hq/entrybit-sdk-js/security/policy
+    about: Report security issues privately to security@entrybit.net. Never file them as public issues.
+  - name: API documentation
+    url: https://docs.entrybit.net
+    about: Reference documentation for the EntryBit API.

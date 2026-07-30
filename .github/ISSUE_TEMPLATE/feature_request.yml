@@ -1,0 +1,30 @@
+name: Feature request
+description: Suggest an improvement to @entrybit/sdk
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Requests for new API endpoints belong with the EntryBit API itself; this tracker covers the SDK surface (client options, helpers, typings, docs).
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem
+      description: What are you trying to do that the SDK makes difficult or impossible today?
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed solution
+      description: What would you like the SDK to provide? A sketch of the desired API is helpful.
+      render: typescript
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+      description: Workarounds you have tried or other designs you considered.
+    validations:
+      required: false
