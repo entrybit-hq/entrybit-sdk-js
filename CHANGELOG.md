@@ -4,6 +4,13 @@ All notable changes to this project are documented in this file. It is
 maintained by [release-please](https://github.com/googleapis/release-please)
 from conventional commits — do not edit it by hand.
 
+## [0.2.1](https://github.com/entrybit-hq/entrybit-sdk-js/compare/v0.2.0...v0.2.1) (2026-07-30)
+
+
+### Bug Fixes
+
+* linear-time trailing-slash normalization in baseUrl ([1a6835b](https://github.com/entrybit-hq/entrybit-sdk-js/commit/1a6835bbc5051e2320f912b46fe74cf395e565b2))
+
 ## [0.2.0](https://github.com/entrybit-hq/entrybit-sdk-js/compare/v0.1.0...v0.2.0) (2026-07-30)
 
 
