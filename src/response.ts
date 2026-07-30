@@ -20,6 +20,25 @@ export async function readBody(res: Response): Promise<unknown> {
   }
 }
 
+/**
+ * Reads a 2xx response body. Unlike `readBody`, read failures propagate (the
+ * caller maps them to `ConnectionError`, retrying when eligible) and a
+ * non-empty body that is not valid JSON raises `APIError` instead of being
+ * returned as text and breaking the caller's type expectations.
+ */
+export async function readSuccessBody(res: Response): Promise<unknown> {
+  const text = await res.text();
+  if (!text) return undefined;
+  try {
+    return JSON.parse(text);
+  } catch {
+    throw new APIError(
+      `Expected a JSON response body but received: ${text.slice(0, 120)}`,
+      { status: res.status, headers: res.headers, body: text },
+    );
+  }
+}
+
 function messageFromBody(body: unknown, fallback: string): string {
   if (body && typeof body === "object") {
     const b = body as Record<string, unknown>;

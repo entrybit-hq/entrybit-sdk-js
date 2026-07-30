@@ -35,6 +35,40 @@ describe("retry with backoff", () => {
     expect(result.ok).toBe(true);
   });
 
+  it("caps an absurdly large Retry-After at 30 seconds", async () => {
+    const { fn, spy } = mockFetch(
+      { status: 429, body: {}, headers: { "Retry-After": "86400" } },
+      { body: OK_PAGE },
+    );
+    const eb = new EntryBit({ apiKey: "eb_sk_test", fetch: fn });
+    const settled = eb.org.members.list().then(
+      (v) => ({ ok: true as const, v }),
+      (e) => ({ ok: false as const, e }),
+    );
+
+    await vi.advanceTimersByTimeAsync(29_999);
+    expect(spy).toHaveBeenCalledTimes(1); // waiting out the cap, not the header
+
+    await vi.advanceTimersByTimeAsync(1);
+    expect(spy).toHaveBeenCalledTimes(2);
+
+    const result = await settled;
+    expect(result.ok).toBe(true);
+  });
+
+  it("reports the unclamped Retry-After on the surfaced RateLimitError", async () => {
+    const { fn } = mockFetch({ status: 429, body: {}, headers: { "Retry-After": "86400" } });
+    const eb = new EntryBit({ apiKey: "eb_sk_test", fetch: fn, maxRetries: 0 });
+    const settled = eb.org.members.list().then(
+      (v) => ({ ok: true as const, v }),
+      (e) => ({ ok: false as const, e }),
+    );
+    await vi.advanceTimersByTimeAsync(0);
+    const result = await settled;
+    expect(result.ok).toBe(false);
+    expect(((result as { e: unknown }).e as RateLimitError).retryAfter).toBe(86_400);
+  });
+
   it("retries a GET on 5xx with exponential backoff, then succeeds", async () => {
     const { fn, spy } = mockFetch({ status: 502 }, { status: 503 }, { body: OK_PAGE });
     const eb = new EntryBit({ apiKey: "eb_sk_test", fetch: fn, maxRetries: 2 });

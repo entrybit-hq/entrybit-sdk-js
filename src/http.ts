@@ -2,10 +2,18 @@ import { backoffDelayMs, sleep } from "./backoff.js";
 import { ConnectionError, EntryBitError, parseRetryAfter } from "./errors.js";
 import { buildQuery } from "./query.js";
 import type { QueryValue } from "./query.js";
-import { errorFromResponse, readBody } from "./response.js";
+import { errorFromResponse, readSuccessBody } from "./response.js";
 import { VERSION } from "./version.js";
 
 export const DEFAULT_BASE_URL = "https://api.entrybit.net";
+
+/**
+ * Upper bound on how long a `Retry-After` header can delay an automatic
+ * retry. Servers occasionally send absurd values (hours); beyond this cap
+ * waiting inside the SDK is worse than surfacing the `RateLimitError`,
+ * which still carries the unclamped `retryAfter` for the caller to act on.
+ */
+const RETRY_AFTER_CAP_MS = 30_000;
 export const USER_AGENT = `entrybit-sdk-js/${VERSION}`;
 
 /** How an organization API key is transmitted. */
@@ -76,6 +84,7 @@ export class HttpClient {
   private readonly apiKeyHeader: ApiKeyHeader;
   private readonly accessToken?: string;
   private readonly getAccessToken?: () => string | Promise<string>;
+  private tokenInFlight?: Promise<string>;
 
   constructor(options: ClientOptions) {
     const modes = [
@@ -110,6 +119,21 @@ export class HttpClient {
     }
   }
 
+  /**
+   * Single-flight wrapper around `getAccessToken`: concurrent requests share
+   * one in-flight call so a slow token refresh is not stampeded. The memo
+   * only lives while the call is pending — every request issued after it
+   * settles asks for a fresh token again.
+   */
+  private resolveAccessToken(): Promise<string> {
+    this.tokenInFlight ??= Promise.resolve()
+      .then(() => this.getAccessToken!())
+      .finally(() => {
+        this.tokenInFlight = undefined;
+      });
+    return this.tokenInFlight;
+  }
+
   private async authHeaders(): Promise<Record<string, string>> {
     if (this.apiKey !== undefined) {
       return this.apiKeyHeader === "x-api-key"
@@ -117,7 +141,7 @@ export class HttpClient {
         : { Authorization: `Bearer ${this.apiKey}` };
     }
     if (this.getAccessToken) {
-      const token = await this.getAccessToken();
+      const token = await this.resolveAccessToken();
       return { Authorization: `Bearer ${token}` };
     }
     if (this.accessToken !== undefined) {
@@ -162,14 +186,33 @@ export class HttpClient {
 
       if (res.ok) {
         if (res.status === 204) return undefined as T;
-        return (await readBody(res)) as T;
+        try {
+          return (await readSuccessBody(res)) as T;
+        } catch (cause) {
+          // Malformed JSON is already a mapped SDK error; rethrow as-is.
+          if (cause instanceof EntryBitError) throw cause;
+          // Anything else means the body read itself failed (timeout fired
+          // mid-body, connection reset). Retry when eligible.
+          if (retryable && attempt < this.maxRetries) {
+            await sleep(backoffDelayMs(attempt));
+            attempt += 1;
+            continue;
+          }
+          throw new ConnectionError(
+            `Reading the response body from ${options.path} failed: ${String(cause)}`,
+            { cause },
+          );
+        }
       }
 
       const shouldRetry =
         retryable && attempt < this.maxRetries && (res.status === 429 || res.status >= 500);
       if (shouldRetry) {
         const retryAfter = res.status === 429 ? parseRetryAfter(res.headers.get("retry-after")) : undefined;
-        const delayMs = retryAfter !== undefined ? retryAfter * 1000 : backoffDelayMs(attempt);
+        const delayMs =
+          retryAfter !== undefined
+            ? Math.min(retryAfter * 1000, RETRY_AFTER_CAP_MS)
+            : backoffDelayMs(attempt);
         // Drain the body so the connection can be reused.
         await res.body?.cancel().catch(() => {});
         await sleep(delayMs);

@@ -53,6 +53,28 @@ describe("cursor pagination iterator", () => {
     expect(requests).toHaveLength(1);
   });
 
+  it("terminates when has_more is true but next_cursor is null (no infinite loop)", async () => {
+    const { fn, requests } = mockFetch({
+      body: { success: true, items: [member("emp_1")], next_cursor: null, has_more: true },
+    });
+    const eb = new EntryBit({ apiKey: "eb_sk_test", fetch: fn });
+    const seen: string[] = [];
+    for await (const m of eb.org.members.iterate()) seen.push(m.id!);
+    expect(seen).toEqual(["emp_1"]);
+    expect(requests).toHaveLength(1);
+  });
+
+  it("terminates when has_more is true and next_cursor is absent", async () => {
+    const { fn, requests } = mockFetch({
+      body: { success: true, items: [member("emp_1")], has_more: true },
+    });
+    const eb = new EntryBit({ apiKey: "eb_sk_test", fetch: fn });
+    const seen: string[] = [];
+    for await (const m of eb.org.members.iterate()) seen.push(m.id!);
+    expect(seen).toEqual(["emp_1"]);
+    expect(requests).toHaveLength(1);
+  });
+
   it("handles an empty first page", async () => {
     const { fn } = mockFetch({ body: { success: true, items: [], has_more: false } });
     const eb = new EntryBit({ apiKey: "eb_sk_test", fetch: fn });

@@ -38,6 +38,49 @@ describe("auth modes", () => {
     expect(requests[1]!.headers["authorization"]).toBe("Bearer tok-2");
   });
 
+  it("shares one in-flight getAccessToken call across concurrent requests", async () => {
+    const { fn } = mockFetch({ body: OK_PAGE });
+    let calls = 0;
+    let release!: (token: string) => void;
+    const gate = new Promise<string>((resolve) => {
+      release = resolve;
+    });
+    const eb = new EntryBit({
+      getAccessToken: () => {
+        calls += 1;
+        return gate;
+      },
+      fetch: fn,
+    });
+
+    const first = eb.passes.list();
+    const second = eb.passes.list();
+    release("tok");
+    await Promise.all([first, second]);
+    expect(calls).toBe(1); // both requests shared the pending call
+
+    await eb.passes.list();
+    expect(calls).toBe(2); // a request after settlement asks again
+  });
+
+  it("recovers when getAccessToken rejects: the failure is not memoized", async () => {
+    const { fn, requests } = mockFetch({ body: OK_PAGE });
+    let calls = 0;
+    const eb = new EntryBit({
+      getAccessToken: () => {
+        calls += 1;
+        if (calls === 1) return Promise.reject(new Error("refresh failed"));
+        return Promise.resolve("tok-2");
+      },
+      fetch: fn,
+    });
+
+    await expect(eb.passes.list()).rejects.toThrow("refresh failed");
+    await eb.passes.list();
+    expect(calls).toBe(2);
+    expect(requests[0]!.headers["authorization"]).toBe("Bearer tok-2");
+  });
+
   it("allows an unauthenticated client (baseUrl override only)", async () => {
     const { fn, requests } = mockFetch({ body: OK_PAGE });
     const eb = new EntryBit({ baseUrl: "http://localhost:8001/", fetch: fn });

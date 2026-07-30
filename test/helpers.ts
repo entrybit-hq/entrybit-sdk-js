@@ -10,6 +10,8 @@ export interface RecordedRequest {
 export interface MockResponseSpec {
   status?: number;
   body?: unknown;
+  /** Raw response body; takes precedence over `body` (which is JSON-encoded). */
+  rawBody?: string | ReadableStream<Uint8Array> | null;
   headers?: Record<string, string>;
 }
 
@@ -35,7 +37,12 @@ export function mockFetch(...specs: MockResponseSpec[]) {
     const spec = specs[Math.min(call, specs.length - 1)] ?? {};
     call += 1;
     const status = spec.status ?? 200;
-    const body = spec.body === undefined ? null : JSON.stringify(spec.body);
+    const body =
+      spec.rawBody !== undefined
+        ? spec.rawBody
+        : spec.body === undefined
+          ? null
+          : JSON.stringify(spec.body);
     return new Response(status === 204 ? null : body, {
       status,
       headers: { "Content-Type": "application/json", ...spec.headers },
