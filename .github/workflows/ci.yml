@@ -18,7 +18,9 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        node-version: [20, 22]
+        # 20.19.0 pins the exact engines floor so it is actually exercised;
+        # 22 and 24 are the maintenance and active LTS lines.
+        node-version: ["20.19.0", 22, 24]
     name: Node ${{ matrix.node-version }}
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
@@ -28,8 +30,11 @@ jobs:
           node-version: ${{ matrix.node-version }}
           cache: npm
 
+      # --ignore-scripts: no dependency postinstall executes on untrusted fork
+      # PRs. The toolchain (tsup/esbuild, vitest, tsc) works without install
+      # scripts — esbuild resolves its binary via optional platform packages.
       - name: Install
-        run: npm ci
+        run: npm ci --ignore-scripts
 
       # Non-blocking: the SDK has zero runtime dependencies, so this only
       # covers future production deps. Advisory data changes independently of
@@ -50,11 +55,23 @@ jobs:
       - name: Typecheck
         run: npm run typecheck
 
-      - name: Test
-        run: npm test
+      - name: Test (with coverage thresholds)
+        run: npm run test:coverage
 
       - name: Build
         run: npm run build
+
+      # Smoke both build outputs: a broken CJS interop or exports-map
+      # regression fails here, not in a consumer's project.
+      - name: Smoke-test dist (ESM + CJS)
+        run: |
+          node --input-type=module -e "import('./dist/index.js').then((m) => { if (typeof m.EntryBit !== 'function') { throw new Error('ESM export broken'); } })"
+          node -e "const { EntryBit } = require('./dist/index.cjs'); if (typeof EntryBit !== 'function') { throw new Error('CJS export broken'); }"
+
+      # publint validates the package manifest; attw catches type-resolution
+      # hazards (e.g. ESM types paired with the CJS entry under node10).
+      - name: Check exports and types resolution
+        run: npm run check:exports
 
       - name: Verify tarball contents
         run: npm run pack:verify

@@ -13,8 +13,28 @@ permissions:
   contents: read
 
 jobs:
+  # Code scanning uploads require Code Security, which this repository only
+  # gets once it is public (it is a paid add-on for private repositories).
+  # Checked via the API because `github.event.repository` is not populated on
+  # scheduled runs. The analyze job activates automatically when the
+  # repository becomes public — no workflow change needed.
+  visibility:
+    runs-on: ubuntu-latest
+    outputs:
+      public: ${{ steps.check.outputs.public }}
+    steps:
+      - id: check
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          public=$(gh api "repos/${{ github.repository }}" --jq 'if .private then "false" else "true" end')
+          echo "public=$public" >> "$GITHUB_OUTPUT"
+          echo "Repository public: $public"
+
   analyze:
     name: Analyze JavaScript/TypeScript
+    needs: visibility
+    if: ${{ needs.visibility.outputs.public == 'true' }}
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -23,10 +43,10 @@ jobs:
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
 
-      - uses: github/codeql-action/init@ea14db8afdef5d462e69d78c4ca45002d4522418 # v4.37.4
+      - uses: github/codeql-action/init@f205ea1c3313d32999d8d6a48b4f6530d4437b38 # v4.37.4
         with:
           languages: javascript-typescript
 
-      - uses: github/codeql-action/analyze@ea14db8afdef5d462e69d78c4ca45002d4522418 # v4.37.4
+      - uses: github/codeql-action/analyze@f205ea1c3313d32999d8d6a48b4f6530d4437b38 # v4.37.4
         with:
           category: "/language:javascript-typescript"

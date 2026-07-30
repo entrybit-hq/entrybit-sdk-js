@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { EntryBit } from "../src/index.js";
+import { EntryBit, EntryBitError } from "../src/index.js";
 import { mockFetch } from "./helpers.js";
 
 describe("URL construction", () => {
@@ -18,9 +18,21 @@ describe("URL construction", () => {
     expect(new URL(url).search).toBe("");
   });
 
+  it("rejects path parameters the URL parser would rewrite into other endpoints", async () => {
+    const { fn, spy } = mockFetch({ body: { success: true } });
+    const eb = new EntryBit({ apiKey: "eb_sk_test", fetch: fn });
+    await expect(eb.passes.get("")).rejects.toThrow(EntryBitError);
+    await expect(eb.passes.get("   ")).rejects.toThrow(EntryBitError);
+    await expect(eb.passes.get(".")).rejects.toThrow(EntryBitError);
+    await expect(eb.passes.get("..")).rejects.toThrow(EntryBitError);
+    await expect(eb.passes.revoke("..")).rejects.toThrow(EntryBitError);
+    await expect(eb.org.members.get("..")).rejects.toThrow(EntryBitError);
+    expect(spy).not.toHaveBeenCalled();
+  });
+
   it("strips trailing slashes from baseUrl so paths never double up", async () => {
     const { fn, requests } = mockFetch({ body: { success: true, items: [], has_more: false } });
-    const eb = new EntryBit({ baseUrl: "http://localhost:8001//", fetch: fn });
+    const eb = new EntryBit({ apiKey: null, baseUrl: "http://localhost:8001//", fetch: fn });
     await eb.passes.list();
     expect(requests[0]!.url).toBe("http://localhost:8001/api/v1/passes");
   });

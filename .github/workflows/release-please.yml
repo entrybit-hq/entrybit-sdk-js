@@ -14,8 +14,92 @@ jobs:
       # Needed to create release commits, tags, and the release pull request.
       contents: write
       pull-requests: write
+    outputs:
+      release_created: ${{ steps.release.outputs.release_created }}
+      tag_name: ${{ steps.release.outputs.tag_name }}
     steps:
       - uses: googleapis/release-please-action@5c625bfb5d1ff62eadeeb3772007f7f66fdcf071 # v4.4.1
+        id: release
         with:
           config-file: release-please-config.json
           manifest-file: .release-please-manifest.json
+
+  # Publishing runs here, in the same workflow, because the tag release-please
+  # creates is made with the default GITHUB_TOKEN — and GitHub never fires
+  # workflow events for refs created with GITHUB_TOKEN (recursive-trigger
+  # protection). A separate `on: push: tags` publish workflow would silently
+  # never run.
+  publish:
+    needs: release-please
+    if: ${{ needs.release-please.outputs.release_created == 'true' }}
+    runs-on: ubuntu-latest
+    environment: npm
+    permissions:
+      contents: read
+      # Needed for npm provenance attestation.
+      id-token: write
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          ref: ${{ needs.release-please.outputs.tag_name }}
+
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: 22
+          cache: npm
+          registry-url: https://registry.npmjs.org
+
+      # --ignore-scripts throughout this job: no dependency lifecycle script
+      # (and no prepublishOnly) ever executes while the npm credential is in
+      # the environment. The same gates run as explicit steps below instead.
+      - name: Install
+        run: npm ci --ignore-scripts
+
+      - name: Generate types from committed spec
+        run: npm run generate
+
+      - name: Check generated types are committed (no drift)
+        run: git diff --exit-code -- src/generated
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Test (with coverage thresholds)
+        run: npm run test:coverage
+
+      - name: Build
+        run: npm run build
+
+      - name: Smoke-test dist (ESM + CJS)
+        run: |
+          node --input-type=module -e "import('./dist/index.js').then((m) => { if (typeof m.EntryBit !== 'function') { throw new Error('ESM export broken'); } })"
+          node -e "const { EntryBit } = require('./dist/index.cjs'); if (typeof EntryBit !== 'function') { throw new Error('CJS export broken'); }"
+
+      - name: Check exports and types resolution
+        run: npm run check:exports
+
+      - name: Verify tarball contents
+        run: npm run pack:verify
+
+      - name: Guard tag matches package.json version
+        env:
+          TAG_NAME: ${{ needs.release-please.outputs.tag_name }}
+        run: |
+          pkg="v$(node -p "require('./package.json').version")"
+          if [ "$TAG_NAME" != "$pkg" ]; then
+            echo "Tag $TAG_NAME does not match package.json version $pkg" >&2
+            exit 1
+          fi
+
+      - name: Publish to npm
+        run: npm publish --provenance --access public --ignore-scripts
+        env:
+          # An npm automation token authorized to publish @entrybit/sdk; set as
+          # a repository secret by an administrator (see CONTRIBUTING.md).
+          # Preferred end state: configure npm "trusted publishing" (OIDC) for
+          # this repo+workflow on npmjs.com and delete this secret entirely —
+          # id-token: write above already covers it.
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}

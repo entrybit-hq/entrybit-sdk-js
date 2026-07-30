@@ -1,7 +1,7 @@
 {
   "name": "@entrybit/sdk",
   "version": "0.1.0",
-  "description": "Official TypeScript SDK for the EntryBit API — guest passes, member directory, facilities.",
+  "description": "Official TypeScript SDK for the EntryBit API — guest passes, member directory, facilities, and OAuth.",
   "license": "MIT",
   "author": "EntryBit",
   "homepage": "https://docs.entrybit.net",
@@ -18,6 +18,8 @@
     "api",
     "access-control",
     "guest-pass",
+    "oauth",
+    "oidc",
     "typescript"
   ],
   "type": "module",
@@ -27,7 +29,7 @@
   },
   "main": "./dist/index.cjs",
   "module": "./dist/index.js",
-  "types": "./dist/index.d.ts",
+  "types": "./dist/index.d.cts",
   "exports": {
     ".": {
       "import": {
@@ -51,17 +53,22 @@
     "lint": "eslint .",
     "test": "vitest run",
     "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage",
+    "check:exports": "publint && attw --pack .",
     "spec:fetch": "node scripts/fetch-spec.mjs",
     "generate": "openapi-typescript spec/openapi.json -o src/generated/schema.d.ts --default-non-nullable=false",
     "regenerate": "npm run spec:fetch && npm run generate",
     "pack:verify": "node scripts/verify-pack.mjs",
-    "prepublishOnly": "npm run typecheck && npm run test && npm run build && npm run pack:verify"
+    "prepublishOnly": "npm run typecheck && npm run test && npm run build && npm run check:exports && npm run pack:verify"
   },
   "devDependencies": {
+    "@arethetypeswrong/cli": "^0.18.5",
     "@eslint/js": "^10.0.1",
     "@types/node": "^22.20.1",
+    "@vitest/coverage-v8": "^4.1.10",
     "eslint": "^10.8.0",
     "openapi-typescript": "^7.13.0",
+    "publint": "^0.3.22",
     "tsup": "^8.5.1",
     "typescript": "^5.9.3",
     "typescript-eslint": "^8.65.0",
