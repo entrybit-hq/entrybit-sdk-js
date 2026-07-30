@@ -1,0 +1,69 @@
+{
+  "name": "@entrybit/sdk",
+  "version": "0.1.0",
+  "description": "Official TypeScript SDK for the EntryBit API — guest passes, member directory, facilities.",
+  "license": "MIT",
+  "author": "EntryBit",
+  "homepage": "https://docs.entrybit.net",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/entrybit-hq/entrybit-sdk-js.git"
+  },
+  "bugs": {
+    "url": "https://github.com/entrybit-hq/entrybit-sdk-js/issues"
+  },
+  "keywords": [
+    "entrybit",
+    "sdk",
+    "api",
+    "access-control",
+    "guest-pass",
+    "typescript"
+  ],
+  "type": "module",
+  "sideEffects": false,
+  "engines": {
+    "node": ">=20"
+  },
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": {
+        "types": "./dist/index.d.ts",
+        "default": "./dist/index.js"
+      },
+      "require": {
+        "types": "./dist/index.d.cts",
+        "default": "./dist/index.cjs"
+      }
+    },
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "dist",
+    "spec/openapi.json"
+  ],
+  "scripts": {
+    "build": "tsup",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint .",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "spec:fetch": "node scripts/fetch-spec.mjs",
+    "generate": "openapi-typescript spec/openapi.json -o src/generated/schema.d.ts --default-non-nullable=false",
+    "regenerate": "npm run spec:fetch && npm run generate",
+    "prepublishOnly": "npm run typecheck && npm run test && npm run build"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.9.0",
+    "@types/node": "^22.20.1",
+    "eslint": "^9.9.0",
+    "openapi-typescript": "^7.4.0",
+    "tsup": "^8.2.0",
+    "typescript": "^5.5.0",
+    "typescript-eslint": "^8.0.0",
+    "vitest": "^2.0.0"
+  }
+}
