@@ -2,7 +2,6 @@
 
 [![npm version](https://img.shields.io/npm/v/%40entrybit%2Fsdk.svg)](https://www.npmjs.com/package/@entrybit/sdk)
 [![CI](https://github.com/entrybit-hq/entrybit-sdk-js/actions/workflows/ci.yml/badge.svg)](https://github.com/entrybit-hq/entrybit-sdk-js/actions/workflows/ci.yml)
-[![License](https://img.shields.io/npm/l/%40entrybit%2Fsdk.svg)](./LICENSE)
 
 The official TypeScript SDK for the [EntryBit API](https://docs.entrybit.net) — guest passes, the organization member directory, facilities, and OAuth.
 
