@@ -31,7 +31,11 @@ const RETRY_AFTER_CAP_MS = 30_000;
 const LOG_RANK: Record<LogLevel, number> = { off: 0, error: 1, warn: 2, info: 3, debug: 4 };
 
 function normalizeBaseUrl(url: string): string {
-  return url.replace(/\/+$/, "");
+  // Linear scan instead of /\/+$/: that regex is polynomial-time on
+  // adversarial input (CodeQL js/polynomial-redos).
+  let end = url.length;
+  while (end > 0 && url.charCodeAt(end - 1) === 47 /* "/" */) end -= 1;
+  return url.slice(0, end);
 }
 
 /**
