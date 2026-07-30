@@ -49,9 +49,13 @@ jobs:
           cache: npm
           registry-url: https://registry.npmjs.org
 
+      # Trusted publishing (OIDC) needs npm >= 11.5.1; Node 22 bundles npm 10.
+      - name: Upgrade npm for trusted publishing
+        run: npm install -g npm@latest
+
       # --ignore-scripts throughout this job: no dependency lifecycle script
-      # (and no prepublishOnly) ever executes while the npm credential is in
-      # the environment. The same gates run as explicit steps below instead.
+      # (and no prepublishOnly) ever executes during install or publish. The
+      # same gates run as explicit steps below instead.
       - name: Install
         run: npm ci --ignore-scripts
 
@@ -94,12 +98,9 @@ jobs:
             exit 1
           fi
 
+      # Authenticates via npm trusted publishing (OIDC): the package's npm
+      # settings trust exactly this repo + workflow + environment, and
+      # id-token: write above lets the job prove its identity. No token
+      # secret exists; provenance attestation is generated automatically.
       - name: Publish to npm
-        run: npm publish --provenance --access public --ignore-scripts
-        env:
-          # An npm automation token authorized to publish @entrybit/sdk; set as
-          # a repository secret by an administrator (see CONTRIBUTING.md).
-          # Preferred end state: configure npm "trusted publishing" (OIDC) for
-          # this repo+workflow on npmjs.com and delete this secret entirely —
-          # id-token: write above already covers it.
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: npm publish --access public --ignore-scripts
