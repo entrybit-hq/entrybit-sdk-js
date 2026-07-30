@@ -4,7 +4,7 @@ Thank you for contributing to the EntryBit Node.js SDK. This document covers loc
 
 ## Prerequisites
 
-- Node.js >= 20 (the SDK relies on the built-in `fetch`)
+- Node.js >= 20.19 (the SDK relies on the built-in `fetch`)
 - npm (bundled with Node.js)
 
 ## Setup
@@ -19,11 +19,13 @@ npm ci
 
 | Command | Purpose |
 | --- | --- |
-| `npm run typecheck` | Typecheck with `tsc --noEmit` (includes `test/readme-samples.ts`) |
-| `npm run lint` | Lint with ESLint |
+| `npm run typecheck` | Typecheck with `tsc --noEmit` (includes `test/`, `examples/`) |
+| `npm run lint` | Lint with ESLint (type-aware) |
 | `npm test` | Run the Vitest suite once |
 | `npm run test:watch` | Run tests in watch mode |
+| `npm run test:coverage` | Run tests with enforced coverage thresholds |
 | `npm run build` | Build ESM + CJS bundles with tsup |
+| `npm run check:exports` | Validate the packed tarball with publint + arethetypeswrong |
 | `npm run generate` | Regenerate `src/generated/schema.d.ts` from the committed `spec/openapi.json` |
 | `npm run regenerate` | Refetch the published OpenAPI spec, then regenerate |
 
@@ -44,17 +46,20 @@ Every code sample in `README.md` is transcribed into `test/readme-samples.ts`, w
 
 ## Pull requests
 
+- **Use a conventional-commit title** (enforced by CI): `feat: …`, `fix: …`, `docs: …`, `chore: …`, with `feat!:` or a `BREAKING CHANGE:` footer for breaking changes. Release automation derives version bumps and the changelog from these — a non-conventional squash-merge title produces no release.
 - Keep changes focused; unrelated refactors belong in separate pull requests.
 - Add or update tests for any behavior change.
-- All CI gates must pass: generate (no drift), lint, typecheck, tests, build.
-- Public API changes require an entry under `Unreleased` in `CHANGELOG.md` and documentation updates in the README.
+- All CI gates must pass: generate (no drift), lint, typecheck, tests + coverage, build, exports check.
+- Public API changes require documentation updates in the README (and the matching `test/readme-samples.ts` block). The changelog is generated — do not edit `CHANGELOG.md` by hand.
 - Breaking changes to the exported surface are only accepted with a clear migration note.
 
 ## Releases
 
-Releases are automated with [release-please](https://github.com/googleapis/release-please): merging to `main` maintains a release pull request that bumps the version and updates the changelog. Merging that pull request creates a `vX.Y.Z` tag, which triggers the publish workflow.
+Releases are automated with [release-please](https://github.com/googleapis/release-please): merging to `main` maintains a release pull request that bumps the version (including `src/version.ts`) and updates the changelog. Merging that pull request runs the `publish` job in the same workflow — gated on the `npm` environment — which re-runs every CI gate and then `npm publish --provenance --access public --ignore-scripts`.
 
-The publish workflow runs every CI gate and then `npm publish --provenance --access public`. It authenticates with the `NPM_TOKEN` repository secret, which must be an npm automation token authorized to publish `@entrybit/sdk`. Only repository administrators can set or rotate this secret.
+Publishing authenticates with the `NPM_TOKEN` repository secret (an npm automation token authorized to publish `@entrybit/sdk`; only repository administrators can set or rotate it). The preferred end state is npm [trusted publishing](https://docs.npmjs.com/trusted-publishers) (OIDC): once this repository + workflow are configured as a trusted publisher on npmjs.com, delete the secret — the workflow already requests `id-token: write`.
+
+Note: publishing deliberately lives in `release-please.yml` rather than a tag-triggered workflow — tags created with the default `GITHUB_TOKEN` never trigger other workflows.
 
 ## Reporting issues
 

@@ -1,16 +1,5 @@
-/**
- * Keyset (cursor) pagination, as returned by every EntryBit list endpoint:
- * pass `next_cursor` back as `cursor` until `has_more` is `false`.
- */
-export interface CursorPage<T> {
-  success: boolean;
-  items: T[];
-  /** Approximate total; unreliable while `search` is set. */
-  total?: number | null;
-  /** Pass back as `cursor` to fetch the next page. */
-  next_cursor?: string | null;
-  has_more: boolean;
-}
+import { EntryBitError } from "../errors/index.js";
+import type { CursorPage } from "../types/pagination.js";
 
 /**
  * Turns a page fetcher into an async iterator over individual items,
@@ -25,6 +14,13 @@ export async function* iterateCursorPages<T>(
     const page = await fetchPage(cursor);
     for (const item of page.items) yield item;
     if (!page.has_more || page.next_cursor == null) return;
+    if (page.next_cursor === cursor) {
+      // A server bug echoing the same cursor forever would otherwise spin
+      // this loop (and the API) indefinitely.
+      throw new EntryBitError(
+        "Pagination cursor did not advance between pages; aborting iteration.",
+      );
+    }
     cursor = page.next_cursor;
   }
 }
