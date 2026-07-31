@@ -68,6 +68,10 @@ export interface ClientEventMap {
 /**
  * Snapshot returned by `EntryBit.debugInfo()`. Safe to paste into bug
  * reports: it names the auth *mode* but never carries credential values.
+ * Field names here must never match secret-scanning heuristics (e.g.
+ * `api[-_]?key`) — this object is designed to be logged, and a
+ * heuristic-matching name would raise clear-text-logging alerts in every
+ * consumer's code scanning.
  */
 export interface ClientDebugInfo {
   name: "@entrybit/sdk";
@@ -77,7 +81,11 @@ export interface ClientDebugInfo {
   userAgent: string;
   baseUrl: string;
   authMode: "apiKey" | "accessToken" | "getAccessToken" | "none";
-  apiKeyHeader: ApiKeyHeader;
+  /**
+   * The header that carries the credential: the `apiKeyHeader` option for
+   * organization-key auth, always `authorization` for token auth.
+   */
+  authHeaderName: ApiKeyHeader;
   maxRetries: number;
   timeoutMs: number;
   telemetry: boolean;

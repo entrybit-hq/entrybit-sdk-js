@@ -219,7 +219,7 @@ export class HttpClient {
       userAgent: this.userAgent,
       baseUrl: this.baseUrl,
       authMode: this.authMode,
-      apiKeyHeader: this.apiKeyHeader,
+      authHeaderName: this.authMode === "apiKey" ? this.apiKeyHeader : "authorization",
       maxRetries: this.maxRetries,
       timeoutMs: this.timeoutMs,
       telemetry: this.telemetry !== undefined,

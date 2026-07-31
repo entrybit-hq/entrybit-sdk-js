@@ -27,6 +27,7 @@ describe("debugInfo", () => {
     expect(info.buildSha).toBe(BUILD_SHA);
     expect(info.baseUrl).toBe("https://api.entrybit.net");
     expect(info.authMode).toBe("apiKey");
+    expect(info.authHeaderName).toBe("authorization");
     expect(info.maxRetries).toBe(2);
     expect(info.timeoutMs).toBe(5_000);
     expect(info.telemetry).toBe(true);
