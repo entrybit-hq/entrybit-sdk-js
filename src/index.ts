@@ -33,7 +33,7 @@ export { Me } from "./resources/me.js";
 export { Org } from "./resources/org.js";
 export { OAuth } from "./resources/oauth.js";
 export { OrgPassTemplates } from "./resources/pass-templates.js";
-export { OrgControllers, OrgDoors, OrgRelays } from "./resources/access.js";
+export { Controllers, Doors, OrgControllers, OrgDoors, OrgRelays } from "./resources/access.js";
 
 // Public types (one file per domain under ./types/)
 export type {

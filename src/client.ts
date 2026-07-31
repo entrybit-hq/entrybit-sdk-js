@@ -1,4 +1,5 @@
 import { HttpClient } from "./core/http.js";
+import { Controllers, Doors } from "./resources/access.js";
 import { Facilities } from "./resources/facilities.js";
 import { Invites } from "./resources/invites.js";
 import { Me } from "./resources/me.js";
@@ -33,6 +34,8 @@ export class EntryBit {
   private invitesInstance?: Invites;
   private facilitiesInstance?: Facilities;
   private oauthInstance?: OAuth;
+  private controllersInstance?: Controllers;
+  private doorsInstance?: Doors;
 
   constructor(options: ClientOptions = {}) {
     this.http = new HttpClient(options);
@@ -66,6 +69,24 @@ export class EntryBit {
   /** OAuth2/OIDC endpoints (`/api/oauth/*`): code exchange, refresh, revoke, introspect, userinfo. */
   get oauth(): OAuth {
     return (this.oauthInstance ??= new OAuth(this.http));
+  }
+
+  /**
+   * Controllers and doors visible to the signed-in user
+   * (`/api/v1/controllers`, scope `controllers:read`). Requires the user's
+   * live `controllers:manage` organization permission.
+   */
+  get controllers(): Controllers {
+    return (this.controllersInstance ??= new Controllers(this.http));
+  }
+
+  /**
+   * Momentary door opening on behalf of the signed-in user
+   * (`/api/v1/doors/open`, scope `doors:open`) — sent-not-opened semantics,
+   * never retried. See {@link Doors}.
+   */
+  get doors(): Doors {
+    return (this.doorsInstance ??= new Doors(this.http));
   }
 
   /**

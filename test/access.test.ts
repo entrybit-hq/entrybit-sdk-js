@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { ConflictError, EntryBit } from "../src/index.js";
+import { ConflictError, EntryBit, PermissionError } from "../src/index.js";
 import { mockFetch } from "./helpers.js";
 
 const CONTROLLERS = {
@@ -88,6 +88,45 @@ describe("org access control", () => {
       controller_sn: "EB123456",
       relay_no: 0,
     });
+  });
+});
+
+describe("user-delegated access control", () => {
+  it("lists controllers for the signed-in user", async () => {
+    const { fn, requests } = mockFetch({ body: CONTROLLERS });
+    const eb = new EntryBit({ accessToken: "tok_x", fetch: fn });
+    const controllers = await eb.controllers.list();
+    // The delegated path, NOT the org one.
+    expect(requests[0]!.url).toBe("https://api.entrybit.net/api/v1/controllers");
+    expect(controllers[0]!.sn).toBe("EB123456");
+  });
+
+  it("opens a door on the delegated path and never retries", async () => {
+    const { fn, requests, spy } = mockFetch({ status: 503, body: {} });
+    const eb = new EntryBit({ accessToken: "tok_x", fetch: fn, maxRetries: 3 });
+    await eb.doors.open({ controller_sn: "EB123456", door_no: 0 }).catch(() => undefined);
+    expect(requests[0]!.url).toBe("https://api.entrybit.net/api/v1/doors/open");
+    expect(spy).toHaveBeenCalledTimes(1);
+  });
+
+  it("surfaces a missing controllers:manage permission as PermissionError", async () => {
+    const { fn } = mockFetch({
+      status: 403,
+      body: { error: "insufficient_scope" },
+      headers: { "WWW-Authenticate": 'Bearer error="insufficient_scope", scope="doors:open"' },
+    });
+    const eb = new EntryBit({ accessToken: "tok_x", fetch: fn });
+    const err = await eb.doors
+      .open({ controller_sn: "EB123456", door_no: 0 })
+      .catch((e: unknown) => e);
+    expect(err).toBeInstanceOf(PermissionError);
+    expect((err as PermissionError).missingScope).toBe("doors:open");
+  });
+
+  it("caches the delegated namespaces", () => {
+    const eb = new EntryBit({ apiKey: null });
+    expect(eb.controllers).toBe(eb.controllers);
+    expect(eb.doors).toBe(eb.doors);
   });
 });
 

@@ -519,6 +519,46 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/controllers": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List controllers, doors and live online status (user-delegated)
+         * @description The caller's organization controllers — discovery for `POST /api/v1/doors/open`. Requires the `controllers:read` scope AND the user's live `controllers:manage` organization permission, so a delegated token can never exceed what the same person can do in the dashboard.
+         */
+        get: operations["listControllers"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/doors/open": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Momentarily open a door (user-delegated)
+         * @description Momentary open only — the controller re-locks after its configured delay. Requires the `doors:open` scope AND the user's live `controllers:manage` organization permission. 202 means "sent", not "opened" (see `CommandAccepted`); an offline controller 409s and the command is never queued. NEVER auto-retry this call. Rate-limited per user (30/min).
+         */
+        post: operations["openDoor"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -2010,6 +2050,62 @@ export interface operations {
             };
             400: components["responses"]["ValidationError"];
             401: components["responses"]["InvalidApiKey"];
+            403: components["responses"]["InsufficientScope"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["ControllerOffline"];
+            429: components["responses"]["RateLimited"];
+        };
+    };
+    listControllers: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Controllers. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success?: boolean;
+                        controllers?: components["schemas"]["Controller"][];
+                    };
+                };
+            };
+            401: components["responses"]["InvalidToken"];
+            403: components["responses"]["InsufficientScope"];
+            429: components["responses"]["RateLimited"];
+        };
+    };
+    openDoor: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DoorOpenRequest"];
+            };
+        };
+        responses: {
+            /** @description Command written to the controller's socket. */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CommandAccepted"];
+                };
+            };
+            400: components["responses"]["ValidationError"];
+            401: components["responses"]["InvalidToken"];
             403: components["responses"]["InsufficientScope"];
             404: components["responses"]["NotFound"];
             409: components["responses"]["ControllerOffline"];

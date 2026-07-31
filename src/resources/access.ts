@@ -29,6 +29,53 @@ export class OrgControllers {
 }
 
 /**
+ * Controllers for a USER-DELEGATED token (`/api/v1/controllers`, scope
+ * `controllers:read`). The server additionally requires the signed-in user's
+ * live `controllers:manage` organization permission, so a token can never
+ * exceed what that person can already do in the dashboard — a user without it
+ * gets `PermissionError` rather than a list.
+ */
+export class Controllers {
+  constructor(private readonly http: HttpClient) {}
+
+  /** Lists the caller's org controllers with doors and live online state. */
+  async list(options?: RequestOptions): Promise<Controller[]> {
+    const res = await this.http.request<{ success: boolean; controllers: Controller[] }>({
+      method: "GET",
+      path: "/api/v1/controllers",
+      ...options,
+    });
+    return res.controllers;
+  }
+}
+
+/**
+ * Momentary door opening for a USER-DELEGATED token (`/api/v1/doors/open`,
+ * scope `doors:open` + the user's live `controllers:manage` permission).
+ *
+ * Identical contract to {@link OrgDoors}: a resolved promise means the command
+ * was **sent** (written to the controller's socket), not that the door
+ * physically opened; an offline controller rejects with `ConflictError`
+ * (`code: "controller_offline"`) and is never queued; and the call is never
+ * auto-retried.
+ */
+export class Doors {
+  constructor(private readonly http: HttpClient) {}
+
+  /** Momentarily opens one door on behalf of the signed-in user. */
+  open(body: DoorOpenRequest, options?: RequestOptions): Promise<CommandAccepted> {
+    return this.http.request<CommandAccepted>({
+      method: "POST",
+      path: "/api/v1/doors/open",
+      body,
+      ...options,
+      // Never auto-retried; pinned after the spread (see OrgDoors.open).
+      idempotent: false,
+    });
+  }
+}
+
+/**
  * Momentary door opening (`/api/v1/org/doors/open`, scope `org:doors:open`).
  *
  * The contract, verbatim from the API:
