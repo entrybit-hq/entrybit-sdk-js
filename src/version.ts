@@ -3,7 +3,7 @@
  * release-please-config.json; the trailing annotation marks the line).
  * test/version.test.ts verifies it matches package.json.
  */
-export const VERSION = "0.4.0"; // x-release-please-version
+export const VERSION = "0.5.0"; // x-release-please-version
 
 /**
  * Short git commit the running bundle was built from, injected by tsup at
