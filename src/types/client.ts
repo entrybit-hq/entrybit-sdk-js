@@ -11,6 +11,87 @@ export interface Logger {
   debug(...args: unknown[]): void;
 }
 
+/**
+ * Identifies an integration built on top of the SDK. Appended to the
+ * `User-Agent` and `x-entrybit-client` headers so support can tell
+ * integrations apart: `entrybit-sdk-js/0.2.1 my-app/2.1.0 (https://…)`.
+ */
+export interface AppInfo {
+  name: string;
+  version?: string | undefined;
+  url?: string | undefined;
+}
+
+/**
+ * Payload of the `"request"` event — emitted once per HTTP attempt, just
+ * before it is sent. Retries re-emit with an incremented `attempt`.
+ */
+export interface RequestEvent {
+  method: string;
+  path: string;
+  /** 0 on the first attempt; +1 per retry. */
+  attempt: number;
+}
+
+/**
+ * Payload of the `"response"` event — emitted once per HTTP response,
+ * including responses the SDK is about to retry (`willRetry: true`).
+ * Requests that fail before response headers arrive (network failure,
+ * timeout, abort mid-connect) emit no `"response"` event; once headers have
+ * been received the event fires even if reading the body then fails or is
+ * aborted. Deliberately carries no headers, bodies or query values — see
+ * README § Privacy.
+ */
+export interface ResponseEvent {
+  method: string;
+  path: string;
+  status: number;
+  /** `x-request-id` echoed by the API, when present. Quote it to support. */
+  requestId: string | undefined;
+  /** Client-measured duration of this attempt in milliseconds. */
+  durationMs: number;
+  /** 0 on the first attempt; +1 per retry. */
+  attempt: number;
+  /**
+   * `true` when the SDK will retry (retryable status within the retry
+   * budget, or a response-body read failure on an idempotent request).
+   */
+  willRetry: boolean;
+}
+
+/** Events observable via `entrybit.on()` / `entrybit.off()`. */
+export interface ClientEventMap {
+  request: RequestEvent;
+  response: ResponseEvent;
+}
+
+/**
+ * Snapshot returned by `EntryBit.debugInfo()`. Safe to paste into bug
+ * reports: it names the auth *mode* but never carries credential values.
+ */
+export interface ClientDebugInfo {
+  name: "@entrybit/sdk";
+  version: string;
+  /** Git commit the bundle was built from; `"dev"` when running from source. */
+  buildSha: string;
+  userAgent: string;
+  baseUrl: string;
+  authMode: "apiKey" | "accessToken" | "getAccessToken" | "none";
+  apiKeyHeader: ApiKeyHeader;
+  maxRetries: number;
+  timeoutMs: number;
+  telemetry: boolean;
+  logLevel: LogLevel;
+  /** `"custom"` when a `fetch` implementation other than `globalThis.fetch` was provided. */
+  fetch: "global" | "custom";
+  runtime: {
+    node: string | undefined;
+    platform: string | undefined;
+    arch: string | undefined;
+    browserLike: boolean;
+  };
+}
+
 export interface ClientOptions {
   /**
    * Organization API key (`eb_sk_…`), created in **Settings → API keys**.
@@ -55,7 +136,8 @@ export interface ClientOptions {
   /**
    * Extra `RequestInit` fields merged into every `fetch` call — e.g. an
    * undici `dispatcher` for proxies or connection-pool tuning. The SDK's
-   * own `method`/`headers`/`body`/`signal` always win.
+   * own `method`/`headers`/`body`/`signal`/`redirect` always win (redirects
+   * stay errors — following one could forward credentials cross-origin).
    */
   fetchOptions?: (RequestInit & Record<string, unknown>) | undefined;
   /** Extra headers sent with every request (header names are case-insensitive). */
@@ -77,8 +159,16 @@ export interface ClientOptions {
   logger?: Logger | undefined;
   /**
    * Log verbosity. `"info"` logs retry decisions; `"debug"` adds one line per
-   * request/response (method, path, status, duration — never headers or
-   * bodies). Defaults to `"warn"` (currently silent).
+   * request/response (method, path, status, duration, request id — never
+   * headers or bodies). Defaults to the `ENTRYBIT_LOG` environment variable
+   * when it names a valid level, else `"warn"` (currently silent). An
+   * explicit option always wins over the environment.
    */
   logLevel?: LogLevel | undefined;
+  /**
+   * Identifies your integration in the `User-Agent` and `x-entrybit-client`
+   * headers (name, optional version and URL). Omitted entirely from the
+   * telemetry header when `telemetry: false`.
+   */
+  appInfo?: AppInfo | undefined;
 }

@@ -8,6 +8,8 @@ export interface EntryBitErrorOptions {
   body?: unknown;
   /** Response headers, when a response was received. */
   headers?: Headers | undefined;
+  /** The `x-request-id` echoed by the API, when a response carried one. */
+  requestId?: string | undefined;
   cause?: unknown;
 }
 
@@ -17,6 +19,8 @@ export class EntryBitError extends Error {
   readonly code?: string | undefined;
   readonly body?: unknown;
   readonly headers?: Headers | undefined;
+  /** The `x-request-id` echoed by the API — quote it when contacting support. */
+  readonly requestId?: string | undefined;
 
   constructor(message: string, options: EntryBitErrorOptions = {}) {
     super(message, options.cause !== undefined ? { cause: options.cause } : undefined);
@@ -25,6 +29,7 @@ export class EntryBitError extends Error {
     this.code = options.code;
     this.body = options.body;
     this.headers = options.headers;
+    this.requestId = options.requestId;
   }
 }
 
@@ -44,7 +49,10 @@ export class PermissionError extends EntryBitError {
    */
   readonly missingScope?: string | undefined;
 
-  constructor(message: string, options: EntryBitErrorOptions & { missingScope?: string | undefined } = {}) {
+  constructor(
+    message: string,
+    options: EntryBitErrorOptions & { missingScope?: string | undefined } = {},
+  ) {
     super(message, options);
     this.name = "PermissionError";
     this.missingScope = options.missingScope;
@@ -56,7 +64,10 @@ export class RateLimitError extends EntryBitError {
   /** Seconds to wait before retrying, parsed from the `Retry-After` header. */
   readonly retryAfter?: number | undefined;
 
-  constructor(message: string, options: EntryBitErrorOptions & { retryAfter?: number | undefined } = {}) {
+  constructor(
+    message: string,
+    options: EntryBitErrorOptions & { retryAfter?: number | undefined } = {},
+  ) {
     super(message, options);
     this.name = "RateLimitError";
     this.retryAfter = options.retryAfter;

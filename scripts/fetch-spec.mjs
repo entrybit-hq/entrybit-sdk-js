@@ -20,7 +20,9 @@ if (new URL(SPEC_URL).protocol !== "https:") {
 
 const outPath = join(dirname(fileURLToPath(import.meta.url)), "..", "spec", "openapi.json");
 
-const res = await fetch(SPEC_URL, { headers: { "User-Agent": BROWSER_UA, Accept: "application/json" } });
+const res = await fetch(SPEC_URL, {
+  headers: { "User-Agent": BROWSER_UA, Accept: "application/json" },
+});
 if (!res.ok) {
   console.error(`Failed to fetch ${SPEC_URL}: HTTP ${res.status}`);
   process.exit(1);

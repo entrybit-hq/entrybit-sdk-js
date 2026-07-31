@@ -39,7 +39,9 @@ describe("timeouts and cancellation", () => {
     const eb = new EntryBit({ apiKey: "eb_sk_test", fetch: fn, maxRetries: 2 });
     const controller = new AbortController();
     setTimeout(() => controller.abort(), 10);
-    const err = await eb.passes.list(undefined, { signal: controller.signal }).catch((e: unknown) => e);
+    const err = await eb.passes
+      .list(undefined, { signal: controller.signal })
+      .catch((e: unknown) => e);
     expect(err).toBeInstanceOf(UserAbortError);
     expect(err).not.toBeInstanceOf(ConnectionError);
     expect(spy).toHaveBeenCalledTimes(1);
@@ -50,7 +52,9 @@ describe("timeouts and cancellation", () => {
     const eb = new EntryBit({ apiKey: "eb_sk_test", fetch: fn, maxRetries: 2 });
     const controller = new AbortController();
     controller.abort();
-    const err = await eb.passes.list(undefined, { signal: controller.signal }).catch((e: unknown) => e);
+    const err = await eb.passes
+      .list(undefined, { signal: controller.signal })
+      .catch((e: unknown) => e);
     expect(err).toBeInstanceOf(UserAbortError);
     expect(spy).not.toHaveBeenCalled();
   });

@@ -5,8 +5,8 @@ import { Me } from "./resources/me.js";
 import { OAuth } from "./resources/oauth.js";
 import { Org } from "./resources/org.js";
 import { Passes } from "./resources/passes.js";
-import type { ClientOptions } from "./types/client.js";
-import type { RequestSpec } from "./types/requests.js";
+import type { ClientDebugInfo, ClientEventMap, ClientOptions } from "./types/client.js";
+import type { RequestSpec, ResponseWithMeta } from "./types/requests.js";
 
 /**
  * The EntryBit API client.
@@ -20,31 +20,52 @@ import type { RequestSpec } from "./types/requests.js";
  * // User-delegated (OAuth2 access token):
  * const entrybit = new EntryBit({ getAccessToken: () => tokenStore.current() });
  * ```
+ *
+ * Resource namespaces are constructed lazily on first access and cached, so
+ * a client only allocates the resources it actually uses.
  */
 export class EntryBit {
-  /** The caller's own guest passes (`/api/v1/passes`, user-delegated). */
-  readonly passes: Passes;
-  /** Organization resources (`/api/v1/org/*`, organization API keys). */
-  readonly org: Org;
-  /** The authenticated member (`/api/v1/me`). */
-  readonly me: Me;
-  /** Pending invites for the authenticated user (`/api/v1/invites`). */
-  readonly invites: Invites;
-  /** Facilities the caller may invite guests to (`/api/v1/facilities`). */
-  readonly facilities: Facilities;
-  /** OAuth2/OIDC endpoints (`/api/oauth/*`): code exchange, refresh, revoke, introspect, userinfo. */
-  readonly oauth: OAuth;
-
   private readonly http: HttpClient;
+
+  private passesInstance?: Passes;
+  private orgInstance?: Org;
+  private meInstance?: Me;
+  private invitesInstance?: Invites;
+  private facilitiesInstance?: Facilities;
+  private oauthInstance?: OAuth;
 
   constructor(options: ClientOptions = {}) {
     this.http = new HttpClient(options);
-    this.passes = new Passes(this.http);
-    this.org = new Org(this.http);
-    this.me = new Me(this.http);
-    this.invites = new Invites(this.http);
-    this.facilities = new Facilities(this.http, "/api/v1/facilities");
-    this.oauth = new OAuth(this.http);
+  }
+
+  /** The caller's own guest passes (`/api/v1/passes`, user-delegated). */
+  get passes(): Passes {
+    return (this.passesInstance ??= new Passes(this.http));
+  }
+
+  /** Organization resources (`/api/v1/org/*`, organization API keys). */
+  get org(): Org {
+    return (this.orgInstance ??= new Org(this.http));
+  }
+
+  /** The authenticated member (`/api/v1/me`). */
+  get me(): Me {
+    return (this.meInstance ??= new Me(this.http));
+  }
+
+  /** Pending invites for the authenticated user (`/api/v1/invites`). */
+  get invites(): Invites {
+    return (this.invitesInstance ??= new Invites(this.http));
+  }
+
+  /** Facilities the caller may invite guests to (`/api/v1/facilities`). */
+  get facilities(): Facilities {
+    return (this.facilitiesInstance ??= new Facilities(this.http, "/api/v1/facilities"));
+  }
+
+  /** OAuth2/OIDC endpoints (`/api/oauth/*`): code exchange, refresh, revoke, introspect, userinfo. */
+  get oauth(): OAuth {
+    return (this.oauthInstance ??= new OAuth(this.http));
   }
 
   /**
@@ -62,5 +83,65 @@ export class EntryBit {
    */
   request<T = unknown>(spec: RequestSpec): Promise<T> {
     return this.http.request<T>(spec);
+  }
+
+  /**
+   * Like `request()`, but also returns transport metadata for the 2xx
+   * response — `status`, `headers` and the API's `requestId` echo — for
+   * callers that correlate successes with server logs.
+   *
+   * ```ts
+   * const { data, requestId } = await entrybit.requestWithMeta<{ items: unknown[] }>({
+   *   method: "GET",
+   *   path: "/api/v1/org/passes",
+   * });
+   * ```
+   */
+  requestWithMeta<T = unknown>(spec: RequestSpec): Promise<ResponseWithMeta<T>> {
+    return this.http.requestWithMeta<T>(spec);
+  }
+
+  /**
+   * Subscribes to client observability events:
+   * `"request"` fires once per HTTP attempt, `"response"` once per HTTP
+   * response (including ones the SDK retries — see `ResponseEvent.willRetry`).
+   * Listener failures — synchronous throws and async rejections alike — are
+   * swallowed; an observer can never fail a request.
+   *
+   * ```ts
+   * entrybit.on("response", (e) => {
+   *   metrics.timing("entrybit.request", e.durationMs, { status: e.status });
+   * });
+   * ```
+   */
+  on<K extends keyof ClientEventMap>(
+    event: K,
+    listener: (payload: ClientEventMap[K]) => unknown,
+  ): this {
+    this.http.events.on(event, listener);
+    return this;
+  }
+
+  /** Unsubscribes a listener previously registered with `on()`. */
+  off<K extends keyof ClientEventMap>(
+    event: K,
+    listener: (payload: ClientEventMap[K]) => unknown,
+  ): this {
+    this.http.events.off(event, listener);
+    return this;
+  }
+
+  /**
+   * Diagnostic snapshot — SDK version, build commit, resolved configuration
+   * and runtime facts. Include its output in bug reports; it names the auth
+   * *mode* but never contains credential values.
+   *
+   * ```ts
+   * console.log(entrybit.debugInfo());
+   * // { name: "@entrybit/sdk", version: "0.2.1", buildSha: "abc123456789", … }
+   * ```
+   */
+  debugInfo(): ClientDebugInfo {
+    return this.http.debugInfo();
   }
 }

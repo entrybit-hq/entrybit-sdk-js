@@ -10,9 +10,7 @@ describe("URL construction", () => {
     const eb = new EntryBit({ apiKey: "eb_sk_test", fetch: fn });
     await eb.org.members.get("emp/1 ?#&");
     const url = requests[0]!.url;
-    expect(url).toBe(
-      "https://api.entrybit.net/api/v1/org/members/emp%2F1%20%3F%23%26",
-    );
+    expect(url).toBe("https://api.entrybit.net/api/v1/org/members/emp%2F1%20%3F%23%26");
     // The encoded id must not introduce extra path segments or a query string.
     expect(new URL(url).pathname.split("/").pop()).toBe("emp%2F1%20%3F%23%26");
     expect(new URL(url).search).toBe("");

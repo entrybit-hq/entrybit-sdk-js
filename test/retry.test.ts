@@ -1,5 +1,11 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { ConnectionError, EntryBit, InternalServerError, RateLimitError, UserAbortError } from "../src/index.js";
+import {
+  ConnectionError,
+  EntryBit,
+  InternalServerError,
+  RateLimitError,
+  UserAbortError,
+} from "../src/index.js";
 import { mockFetch } from "./helpers.js";
 
 const OK_PAGE = { success: true, items: [], has_more: false };
@@ -145,7 +151,12 @@ describe("retry with backoff", () => {
     const { fn, spy } = mockFetch({ reject: new TypeError("fetch failed") });
     const eb = new EntryBit({ apiKey: "eb_sk_test", fetch: fn });
     const settled = eb.org.passes
-      .create({ first_name: "A", arrival_date: "2026-08-01", facility_id: 1, email: "a@example.com" })
+      .create({
+        first_name: "A",
+        arrival_date: "2026-08-01",
+        facility_id: 1,
+        email: "a@example.com",
+      })
       .then(
         (v) => ({ ok: true as const, v }),
         (e) => ({ ok: false as const, e }),
@@ -175,7 +186,12 @@ describe("retry with backoff", () => {
     const { fn, spy } = mockFetch({ status: 502 });
     const eb = new EntryBit({ apiKey: "eb_sk_test", fetch: fn });
     const settled = eb.org.passes
-      .create({ first_name: "A", arrival_date: "2026-08-01", facility_id: 1, email: "a@example.com" })
+      .create({
+        first_name: "A",
+        arrival_date: "2026-08-01",
+        facility_id: 1,
+        email: "a@example.com",
+      })
       .then(
         (v) => ({ ok: true as const, v }),
         (e) => ({ ok: false as const, e }),

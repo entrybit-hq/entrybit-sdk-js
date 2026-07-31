@@ -1,12 +1,7 @@
 import type { HttpClient } from "../core/http.js";
 import { encodePathParam } from "../core/params.js";
 import { iterateCursorPages } from "../core/pagination.js";
-import type {
-  GetMemberParams,
-  ListMembersParams,
-  Member,
-  MemberPage,
-} from "../types/members.js";
+import type { GetMemberParams, ListMembersParams, Member, MemberPage } from "../types/members.js";
 import type { RequestOptions } from "../types/requests.js";
 
 function serializeMemberQuery(params: ListMembersParams | GetMemberParams | undefined) {

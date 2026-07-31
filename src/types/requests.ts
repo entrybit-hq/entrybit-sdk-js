@@ -34,3 +34,16 @@ export interface RequestSpec extends RequestOptions {
   /** Skips credential attachment (OAuth endpoints authenticate via body params). */
   unauthenticated?: boolean | undefined;
 }
+
+/**
+ * A successful result plus transport metadata, from
+ * `EntryBit.requestWithMeta()` — for callers that need the request id,
+ * status or headers of a 2xx response (resource methods return bodies only).
+ */
+export interface ResponseWithMeta<T> {
+  data: T;
+  status: number;
+  /** `x-request-id` echoed by the API, when present. Quote it to support. */
+  requestId: string | undefined;
+  headers: Headers;
+}

@@ -3,8 +3,18 @@
  * `../core/`, `../errors/` and `../resources/`; everything here is
  * `export type` only and erases at build time.
  */
-export type { ApiKeyHeader, ClientOptions, Logger, LogLevel } from "./client.js";
-export type { QueryValue, RequestOptions, RequestSpec } from "./requests.js";
+export type {
+  ApiKeyHeader,
+  AppInfo,
+  ClientDebugInfo,
+  ClientEventMap,
+  ClientOptions,
+  Logger,
+  LogLevel,
+  RequestEvent,
+  ResponseEvent,
+} from "./client.js";
+export type { QueryValue, RequestOptions, RequestSpec, ResponseWithMeta } from "./requests.js";
 export type { CursorPage } from "./pagination.js";
 export type {
   Pass,

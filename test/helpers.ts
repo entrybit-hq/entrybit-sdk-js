@@ -30,46 +30,51 @@ export interface MockResponseSpec {
 export function mockFetch(...specs: MockResponseSpec[]) {
   const requests: RecordedRequest[] = [];
   let call = 0;
-  const fn = vi.fn(async (input: Parameters<typeof globalThis.fetch>[0], init?: RequestInit): Promise<Response> => {
-    const url = typeof input === "string" ? input : input instanceof URL ? input.href : input.url;
-    const headers: Record<string, string> = {};
-    new Headers(init?.headers).forEach((value, key) => {
-      headers[key.toLowerCase()] = value;
-    });
-    requests.push({
-      url,
-      method: init?.method ?? "GET",
-      headers,
-      body: typeof init?.body === "string" ? init.body : undefined,
-      signal: init?.signal ?? undefined,
-      redirect: init?.redirect,
-      init: init as (RequestInit & Record<string, unknown>) | undefined,
-    });
-    const spec = specs[Math.min(call, specs.length - 1)] ?? {};
-    call += 1;
-    if (spec.hang) {
-      return new Promise<Response>((_resolve, reject) => {
-        const signal = init?.signal;
-        if (!signal) return; // hangs forever — a test bug, surfaced by the test timeout
-        if (signal.aborted) {
-          reject(signal.reason);
-          return;
-        }
-        signal.addEventListener("abort", () => reject(signal.reason as Error));
+  const fn = vi.fn(
+    async (
+      input: Parameters<typeof globalThis.fetch>[0],
+      init?: RequestInit,
+    ): Promise<Response> => {
+      const url = typeof input === "string" ? input : input instanceof URL ? input.href : input.url;
+      const headers: Record<string, string> = {};
+      new Headers(init?.headers).forEach((value, key) => {
+        headers[key.toLowerCase()] = value;
       });
-    }
-    if (spec.reject !== undefined) throw spec.reject;
-    const status = spec.status ?? 200;
-    const body =
-      spec.rawBody !== undefined
-        ? spec.rawBody
-        : spec.body === undefined
-          ? null
-          : JSON.stringify(spec.body);
-    return new Response(status === 204 ? null : body, {
-      status,
-      headers: { "Content-Type": "application/json", ...spec.headers },
-    });
-  });
+      requests.push({
+        url,
+        method: init?.method ?? "GET",
+        headers,
+        body: typeof init?.body === "string" ? init.body : undefined,
+        signal: init?.signal ?? undefined,
+        redirect: init?.redirect,
+        init: init as (RequestInit & Record<string, unknown>) | undefined,
+      });
+      const spec = specs[Math.min(call, specs.length - 1)] ?? {};
+      call += 1;
+      if (spec.hang) {
+        return new Promise<Response>((_resolve, reject) => {
+          const signal = init?.signal;
+          if (!signal) return; // hangs forever — a test bug, surfaced by the test timeout
+          if (signal.aborted) {
+            reject(signal.reason);
+            return;
+          }
+          signal.addEventListener("abort", () => reject(signal.reason as Error));
+        });
+      }
+      if (spec.reject !== undefined) throw spec.reject;
+      const status = spec.status ?? 200;
+      const body =
+        spec.rawBody !== undefined
+          ? spec.rawBody
+          : spec.body === undefined
+            ? null
+            : JSON.stringify(spec.body);
+      return new Response(status === 204 ? null : body, {
+        status,
+        headers: { "Content-Type": "application/json", ...spec.headers },
+      });
+    },
+  );
   return { fn: fn as unknown as typeof globalThis.fetch, requests, spy: fn };
 }
