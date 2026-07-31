@@ -4,6 +4,13 @@ All notable changes to this project are documented in this file. It is
 maintained by [release-please](https://github.com/googleapis/release-please)
 from conventional commits — do not edit it by hand.
 
+## [0.5.0](https://github.com/entrybit-hq/entrybit-sdk-js/compare/v0.4.0...v0.5.0) (2026-07-31)
+
+
+### Features
+
+* user-delegated controllers and door opening ([#13](https://github.com/entrybit-hq/entrybit-sdk-js/issues/13)) ([67a9f56](https://github.com/entrybit-hq/entrybit-sdk-js/commit/67a9f5653b9e4e9017340a67993c1e7ecc210516))
+
 ## [0.4.0](https://github.com/entrybit-hq/entrybit-sdk-js/compare/v0.3.0...v0.4.0) (2026-07-31)
 
 
