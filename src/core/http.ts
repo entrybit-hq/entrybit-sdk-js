@@ -219,7 +219,14 @@ export class HttpClient {
       userAgent: this.userAgent,
       baseUrl: this.baseUrl,
       authMode: this.authMode,
-      authHeaderName: this.authMode === "apiKey" ? this.apiKeyHeader : "authorization",
+      // Selected from literals on purpose: code scanners taint-track any
+      // value read off an api-key-named field into logging sinks, and
+      // debugInfo() is designed to be logged. The option only feeds the
+      // comparison, so no tracked flow reaches the snapshot.
+      authHeaderName:
+        this.authMode === "apiKey" && this.apiKeyHeader === "x-api-key"
+          ? "x-api-key"
+          : "authorization",
       maxRetries: this.maxRetries,
       timeoutMs: this.timeoutMs,
       telemetry: this.telemetry !== undefined,

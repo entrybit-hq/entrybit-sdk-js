@@ -54,6 +54,12 @@ describe("debugInfo", () => {
     expect(new EntryBit({ apiKey: null, fetch: fn }).debugInfo().authMode).toBe("none");
   });
 
+  it("reports authHeaderName: 'x-api-key' when that transport is configured", () => {
+    const { fn } = mockFetch({ body: OK_PAGE });
+    const eb = new EntryBit({ apiKey: "eb_sk_test", apiKeyHeader: "x-api-key", fetch: fn });
+    expect(eb.debugInfo().authHeaderName).toBe("x-api-key");
+  });
+
   it("reports fetch: 'global' when globalThis.fetch is passed explicitly", () => {
     const eb = new EntryBit({ apiKey: null, fetch: globalThis.fetch });
     expect(eb.debugInfo().fetch).toBe("global");
