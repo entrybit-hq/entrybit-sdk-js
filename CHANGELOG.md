@@ -4,6 +4,13 @@ All notable changes to this project are documented in this file. It is
 maintained by [release-please](https://github.com/googleapis/release-please)
 from conventional commits — do not edit it by hand.
 
+## [0.3.0](https://github.com/entrybit-hq/entrybit-sdk-js/compare/v0.2.1...v0.3.0) (2026-07-31)
+
+
+### Features
+
+* debugging surface, build provenance, and a lighter core ([#9](https://github.com/entrybit-hq/entrybit-sdk-js/issues/9)) ([b2e4f32](https://github.com/entrybit-hq/entrybit-sdk-js/commit/b2e4f326618c953f64c24b4fbb90af937f2b14a8))
+
 ## [0.2.1](https://github.com/entrybit-hq/entrybit-sdk-js/compare/v0.2.0...v0.2.1) (2026-07-30)
 
 
