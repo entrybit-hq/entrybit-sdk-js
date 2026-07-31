@@ -4,6 +4,13 @@ All notable changes to this project are documented in this file. It is
 maintained by [release-please](https://github.com/googleapis/release-please)
 from conventional commits — do not edit it by hand.
 
+## [0.4.0](https://github.com/entrybit-hq/entrybit-sdk-js/compare/v0.3.0...v0.4.0) (2026-07-31)
+
+
+### Features
+
+* pass display options, pass templates, and the access-control surface ([#11](https://github.com/entrybit-hq/entrybit-sdk-js/issues/11)) ([8ae98a3](https://github.com/entrybit-hq/entrybit-sdk-js/commit/8ae98a3e102b75dafc7f078beca8504181570994))
+
 ## [0.3.0](https://github.com/entrybit-hq/entrybit-sdk-js/compare/v0.2.1...v0.3.0) (2026-07-31)
 
 
