@@ -1862,6 +1862,108 @@
           }
         }
       }
+    },
+    "/api/v1/controllers": {
+      "get": {
+        "tags": [
+          "Access control"
+        ],
+        "operationId": "listControllers",
+        "summary": "List controllers, doors and live online status (user-delegated)",
+        "description": "The caller's organization controllers — discovery for `POST /api/v1/doors/open`. Requires the `controllers:read` scope AND the user's live `controllers:manage` organization permission, so a delegated token can never exceed what the same person can do in the dashboard.",
+        "security": [
+          {
+            "OAuthAccessToken": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Controllers.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "controllers": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/Controller"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/InvalidToken"
+          },
+          "403": {
+            "$ref": "#/components/responses/InsufficientScope"
+          },
+          "429": {
+            "$ref": "#/components/responses/RateLimited"
+          }
+        }
+      }
+    },
+    "/api/v1/doors/open": {
+      "post": {
+        "tags": [
+          "Access control"
+        ],
+        "operationId": "openDoor",
+        "summary": "Momentarily open a door (user-delegated)",
+        "description": "Momentary open only — the controller re-locks after its configured delay. Requires the `doors:open` scope AND the user's live `controllers:manage` organization permission. 202 means \"sent\", not \"opened\" (see `CommandAccepted`); an offline controller 409s and the command is never queued. NEVER auto-retry this call. Rate-limited per user (30/min).",
+        "security": [
+          {
+            "OAuthAccessToken": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DoorOpenRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "202": {
+            "description": "Command written to the controller's socket.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CommandAccepted"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/ValidationError"
+          },
+          "401": {
+            "$ref": "#/components/responses/InvalidToken"
+          },
+          "403": {
+            "$ref": "#/components/responses/InsufficientScope"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/ControllerOffline"
+          },
+          "429": {
+            "$ref": "#/components/responses/RateLimited"
+          }
+        }
+      }
     }
   },
   "components": {
@@ -1883,7 +1985,9 @@
               "passes:write": "Create and manage your guest passes",
               "invites:read": "View invitations addressed to you",
               "member:read": "Your member profile, organization and apartment details",
-              "members:read": "View your organization's member directory"
+              "members:read": "View your organization's member directory",
+              "controllers:read": "View your organization's controllers and doors",
+              "doors:open": "Momentarily open doors you are authorized to manage"
             }
           }
         }
