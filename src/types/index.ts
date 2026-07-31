@@ -21,9 +21,19 @@ export type {
   PassPage,
   PassCreateRequest,
   PassCreateResponse,
+  PassDisplayOptions,
+  PassTemplate,
   RevokeResponse,
   ListPassesParams,
 } from "./passes.js";
+export type {
+  CommandAccepted,
+  Controller,
+  ControllerDoor,
+  DoorOpenRequest,
+  RelayCloseRequest,
+  RelayOpenRequest,
+} from "./access.js";
 export type { Member, MemberPage, ListMembersParams, GetMemberParams } from "./members.js";
 export type { Facility } from "./facilities.js";
 export type { OrgInvite } from "./invites.js";

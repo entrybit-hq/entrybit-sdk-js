@@ -196,3 +196,37 @@ export function responseEvents(entrybit: EntryBit): void {
 export function debugSnapshot(entrybit: EntryBit): void {
   console.log(entrybit.debugInfo());
 }
+
+// README § Pass display & templates
+export async function passDisplayAndTemplates(entrybit: EntryBit): Promise<void> {
+  const created = await entrybit.org.passes.create({
+    first_name: "Dana",
+    phone: "0501234567",
+    arrival_date: "2026-08-12",
+    facility_id: 1,
+    template: "pool-guest", // start from a named preset…
+    display: { print: false, language: "he" }, // …and override per pass
+  });
+  console.log(created.display_applied); // what the guest's pass page will actually use
+
+  await entrybit.org.passTemplates.upsert("pool-guest", {
+    show_code: false,
+    welcome_message: "Welcome! Show the QR at the pool gate.",
+  });
+  const templates = await entrybit.org.passTemplates.list();
+  void templates;
+}
+
+// README § Access control
+export async function accessControl(entrybit: EntryBit): Promise<void> {
+  const controllers = await entrybit.org.controllers.list();
+  const online = controllers.find((c) => c.online);
+  const door = online?.doors?.find((d) => d.openable);
+
+  if (online?.sn && door?.door_no != null) {
+    const res = await entrybit.org.doors.open({ controller_sn: online.sn, door_no: door.door_no });
+    console.log(res.status); // "sent" — written to the controller, NOT "opened"
+  }
+
+  await entrybit.org.relays.open({ controller_sn: "EB123456", relay_no: 0, duration: 10 });
+}

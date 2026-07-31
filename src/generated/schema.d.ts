@@ -395,6 +395,130 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/org/pass-templates": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List pass templates
+         * @description Requires the `org:pass_templates:read` scope.
+         */
+        get: operations["orgListPassTemplates"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/org/pass-templates/{name}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Create or replace a pass template
+         * @description Whole-object replace (not a patch). The display object is fully validated — unknown keys are a named 400. Requires the `org:pass_templates:write` scope. At most 50 templates per organization.
+         */
+        put: operations["orgUpsertPassTemplate"];
+        post?: never;
+        /**
+         * Delete a pass template
+         * @description Passes already minted from the template keep their frozen display. Requires the `org:pass_templates:write` scope.
+         */
+        delete: operations["orgDeletePassTemplate"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/org/controllers": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List controllers, doors and live online status
+         * @description Discovery for the actuation endpoints: which serials exist, which doors are remotely openable, and whether the controller is connected right now. Requires the `org:controllers:read` scope.
+         */
+        get: operations["orgListControllers"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/org/doors/open": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Momentarily open a door
+         * @description Momentary open only — the controller re-locks after its configured delay; hold-open, lock and lockdown are deliberately not exposed. The door must be a grantable `Control` door on a controller the organization owns. 202 means "sent", not "opened" (see `CommandAccepted`). NEVER auto-retry this call. Requires the `org:doors:open` scope; rate-limited per key (30/min).
+         */
+        post: operations["orgOpenDoor"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/org/relays/open": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Switch a relay on for a bounded duration
+         * @description Duration is capped at 300 s. 202 means "sent", not "switched" (see `CommandAccepted`). NEVER auto-retry. Requires the `org:relays:open` scope; rate-limited per key (30/min).
+         */
+        post: operations["orgOpenRelay"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/org/relays/close": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Switch a relay off now
+         * @description The safe direction — shares the `org:relays:open` scope. 202 means "sent" (see `CommandAccepted`).
+         */
+        post: operations["orgCloseRelay"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -578,6 +702,9 @@ export interface components {
             notes?: string;
             /** @description Display name shown to the guest. */
             invited_by?: string;
+            display?: components["schemas"]["PassDisplayOptions"];
+            /** @description Name of a pass template (see `/api/v1/org/pass-templates`) whose display preset this pass starts from; `display` fields override it one by one. Unknown names are a 404. */
+            template?: string;
         };
         PassCreateResponse: {
             success: boolean;
@@ -597,6 +724,8 @@ export interface components {
             /** @description The single shareable pass page URL (shows all QRs in the batch). */
             pass_link?: string | null;
             message?: string;
+            /** @description The presentation options actually applied (template merged with the request). `null` when the pass renders system defaults — also how an integrator detects a server without display support. */
+            display_applied?: components["schemas"]["PassDisplayOptions"] | null;
         };
         RevokeResponse: {
             success: boolean;
@@ -705,6 +834,79 @@ export interface components {
             current?: number;
             requested?: number;
         };
+        /** @description Presentation options for the guest pass page. Strictly allowlisted server-side: unknown keys are rejected with a 400 naming the key. Options shape presentation ONLY — entry validation, credentials, delivery requirements and link lifetime are never affected. */
+        PassDisplayOptions: {
+            /**
+             * @description Offer the Print action on the pass page.
+             * @default true
+             */
+            print?: boolean;
+            /**
+             * @description Show the numeric code under each QR (`false` = QR-only).
+             * @default true
+             */
+            show_code?: boolean;
+            /**
+             * @description Pin the pass page and invite email/SMS language. `auto` follows the guest's browser.
+             * @default auto
+             * @enum {string}
+             */
+            language?: "auto" | "en" | "he";
+            /** @description Short plain-text greeting shown on the pass page. Sanitized server-side (control characters stripped, length-capped); rendered as text only — never HTML, never sent by SMS. */
+            welcome_message?: string;
+        };
+        /** @description A named, organization-scoped display preset. Reference it by name on pass creation (`template`); per-request `display` options override it field-by-field. */
+        PassTemplate: {
+            /** @description Lowercase slug, unique per organization. */
+            name?: string;
+            display?: components["schemas"]["PassDisplayOptions"];
+            created_at?: string;
+            updated_at?: string;
+        };
+        ControllerDoor: {
+            door_no?: number;
+            name?: string | null;
+            /** @description `true` = a grantable `Control` door that `POST /api/v1/org/doors/open` accepts. Spare/extra doors are listed but not openable. */
+            openable?: boolean;
+        };
+        Controller: {
+            /** @description Controller serial (the actuation target id). */
+            sn?: string;
+            description?: string | null;
+            /** @description Live connection state (in-memory registry, last seen ≤ 120 s) — the only truth the actuation endpoints consult. */
+            online?: boolean;
+            /** @description `tcp` or `websocket` while online; `null` when offline. */
+            protocol?: string | null;
+            doors?: components["schemas"]["ControllerDoor"][];
+        };
+        DoorOpenRequest: {
+            controller_sn: string;
+            door_no: number;
+        };
+        RelayOpenRequest: {
+            controller_sn: string;
+            relay_no: number;
+            /**
+             * @description Seconds the relay stays on (0 = the controller's default).
+             * @default 5
+             */
+            duration?: number;
+        };
+        RelayCloseRequest: {
+            controller_sn: string;
+            relay_no: number;
+        };
+        /** @description `status: "sent"` means the command frame was WRITTEN to the controller's socket. It is NOT confirmation of physical execution — delivery is fire-and-forget and execution is only observable via subsequent events. Commands are never queued for offline controllers and must never be auto-retried. */
+        CommandAccepted: {
+            success?: boolean;
+            controller_sn?: string;
+            door_no?: number;
+            relay_no?: number;
+            duration?: number;
+            /** @enum {string} */
+            status?: "sent";
+            protocol?: string | null;
+        };
     };
     responses: {
         /** @description Missing, malformed, expired or revoked access token. */
@@ -771,6 +973,21 @@ export interface components {
             };
             content: {
                 "application/json": components["schemas"]["QuotaError"];
+            };
+        };
+        /** @description The controller is not connected. The command was NOT sent and will NOT be queued or delivered on reconnect — retry only with live human intent. */
+        ControllerOffline: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": {
+                    /** @enum {boolean} */
+                    success?: false;
+                    /** @enum {string} */
+                    error?: "controller_offline";
+                    message?: string;
+                };
             };
         };
     };
@@ -1582,6 +1799,221 @@ export interface operations {
             401: components["responses"]["InvalidToken"];
             403: components["responses"]["InsufficientScope"];
             404: components["responses"]["NotFound"];
+        };
+    };
+    orgListPassTemplates: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Templates, ordered by name. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success?: boolean;
+                        templates?: components["schemas"]["PassTemplate"][];
+                    };
+                };
+            };
+            401: components["responses"]["InvalidApiKey"];
+            403: components["responses"]["InsufficientScope"];
+        };
+    };
+    orgUpsertPassTemplate: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    display: components["schemas"]["PassDisplayOptions"];
+                };
+            };
+        };
+        responses: {
+            /** @description The stored template. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success?: boolean;
+                        template?: components["schemas"]["PassTemplate"];
+                    };
+                };
+            };
+            400: components["responses"]["ValidationError"];
+            401: components["responses"]["InvalidApiKey"];
+            403: components["responses"]["InsufficientScope"];
+            /** @description Template limit reached (50 per organization). */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @enum {boolean} */
+                        success?: false;
+                        error?: string;
+                    };
+                };
+            };
+        };
+    };
+    orgDeletePassTemplate: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Deleted. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success?: boolean;
+                        deleted?: string;
+                    };
+                };
+            };
+            401: components["responses"]["InvalidApiKey"];
+            403: components["responses"]["InsufficientScope"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    orgListControllers: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Controllers. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success?: boolean;
+                        controllers?: components["schemas"]["Controller"][];
+                    };
+                };
+            };
+            401: components["responses"]["InvalidApiKey"];
+            403: components["responses"]["InsufficientScope"];
+        };
+    };
+    orgOpenDoor: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DoorOpenRequest"];
+            };
+        };
+        responses: {
+            /** @description Command written to the controller's socket. */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CommandAccepted"];
+                };
+            };
+            400: components["responses"]["ValidationError"];
+            401: components["responses"]["InvalidApiKey"];
+            403: components["responses"]["InsufficientScope"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["ControllerOffline"];
+            429: components["responses"]["RateLimited"];
+        };
+    };
+    orgOpenRelay: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RelayOpenRequest"];
+            };
+        };
+        responses: {
+            /** @description Command written to the controller's socket. */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CommandAccepted"];
+                };
+            };
+            400: components["responses"]["ValidationError"];
+            401: components["responses"]["InvalidApiKey"];
+            403: components["responses"]["InsufficientScope"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["ControllerOffline"];
+            429: components["responses"]["RateLimited"];
+        };
+    };
+    orgCloseRelay: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RelayCloseRequest"];
+            };
+        };
+        responses: {
+            /** @description Command written to the controller's socket. */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CommandAccepted"];
+                };
+            };
+            400: components["responses"]["ValidationError"];
+            401: components["responses"]["InvalidApiKey"];
+            403: components["responses"]["InsufficientScope"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["ControllerOffline"];
+            429: components["responses"]["RateLimited"];
         };
     };
 }

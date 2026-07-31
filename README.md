@@ -57,16 +57,20 @@ Runnable examples live in [`examples/`](./examples).
 
 Namespaces mirror the API paths:
 
-| Namespace                 | Endpoint                                                                               | Auth                                  |
-| ------------------------- | -------------------------------------------------------------------------------------- | ------------------------------------- |
-| `entrybit.passes`         | `/api/v1/passes` — your own guest passes: `list`, `iterate`, `get`, `create`, `revoke` | OAuth token                           |
-| `entrybit.org.passes`     | `/api/v1/org/passes` — organization-wide passes: `list`, `iterate`, `create`, `revoke` | API key                               |
-| `entrybit.org.members`    | `/api/v1/org/members` — member directory: `list`, `iterate`, `get`                     | API key or OAuth token                |
-| `entrybit.org.facilities` | `/api/v1/org/facilities` — `list`                                                      | API key                               |
-| `entrybit.me`             | `/api/v1/me` — the authenticated member: `get`                                         | OAuth token                           |
-| `entrybit.invites`        | `/api/v1/invites` — pending invites: `list`                                            | OAuth token                           |
-| `entrybit.facilities`     | `/api/v1/facilities` — facilities you may invite guests to: `list`                     | OAuth token                           |
-| `entrybit.oauth`          | `/api/oauth/*` — `exchangeCode`, `refresh`, `revoke`, `introspect`, `userinfo`         | Body params (`userinfo`: OAuth token) |
+| Namespace                    | Endpoint                                                                               | Auth                                  |
+| ---------------------------- | -------------------------------------------------------------------------------------- | ------------------------------------- |
+| `entrybit.passes`            | `/api/v1/passes` — your own guest passes: `list`, `iterate`, `get`, `create`, `revoke` | OAuth token                           |
+| `entrybit.org.passes`        | `/api/v1/org/passes` — organization-wide passes: `list`, `iterate`, `create`, `revoke` | API key                               |
+| `entrybit.org.members`       | `/api/v1/org/members` — member directory: `list`, `iterate`, `get`                     | API key or OAuth token                |
+| `entrybit.org.facilities`    | `/api/v1/org/facilities` — `list`                                                      | API key                               |
+| `entrybit.org.passTemplates` | `/api/v1/org/pass-templates` — named display presets: `list`, `upsert`, `delete`       | API key                               |
+| `entrybit.org.controllers`   | `/api/v1/org/controllers` — controllers, doors, live online status: `list`             | API key                               |
+| `entrybit.org.doors`         | `/api/v1/org/doors` — momentary door opening: `open`                                   | API key                               |
+| `entrybit.org.relays`        | `/api/v1/org/relays` — bounded relay switching: `open`, `close`                        | API key                               |
+| `entrybit.me`                | `/api/v1/me` — the authenticated member: `get`                                         | OAuth token                           |
+| `entrybit.invites`           | `/api/v1/invites` — pending invites: `list`                                            | OAuth token                           |
+| `entrybit.facilities`        | `/api/v1/facilities` — facilities you may invite guests to: `list`                     | OAuth token                           |
+| `entrybit.oauth`             | `/api/oauth/*` — `exchangeCode`, `refresh`, `revoke`, `introspect`, `userinfo`         | Body params (`userinfo`: OAuth token) |
 
 For endpoints the typed surface does not model yet, `entrybit.request()` sends a request through the same auth/retry/error pipeline:
 
@@ -138,13 +142,18 @@ Delegated (OAuth) scopes:
 
 Organization API-key scopes are selected when creating the key in **Settings → API keys** (least privilege), including:
 
-| Scope                      | Grants                                      |
-| -------------------------- | ------------------------------------------- |
-| `org:passes:read`          | List organization guest passes              |
-| `org:passes:write`         | Create and revoke organization guest passes |
-| `org:members:read`         | Member directory, basic tier                |
-| `org:members:contact:read` | Member directory, adds `email` and `phone`  |
-| `org:facilities:read`      | List organization facilities                |
+| Scope                      | Grants                                                      |
+| -------------------------- | ----------------------------------------------------------- |
+| `org:passes:read`          | List organization guest passes                              |
+| `org:passes:write`         | Create and revoke organization guest passes                 |
+| `org:members:read`         | Member directory, basic tier                                |
+| `org:members:contact:read` | Member directory, adds `email` and `phone`                  |
+| `org:facilities:read`      | List organization facilities                                |
+| `org:pass_templates:read`  | List pass templates                                         |
+| `org:pass_templates:write` | Create, update and delete pass templates                    |
+| `org:controllers:read`     | List controllers, doors, live online status                 |
+| `org:doors:open`           | Momentarily open doors (never hold-open, lock, or lockdown) |
+| `org:relays:open`          | Switch relays on/off for a bounded duration                 |
 
 See the [API reference](https://docs.entrybit.net) for the complete, current list.
 
@@ -172,6 +181,58 @@ const page = await entrybit.org.members.list({ fields: ["name", "email", "phone"
 ```
 
 Which fields come back also depends on your credential's tier: the basic tier returns identity and role fields; `org:members:contact:read` (or any delegated `members:read` token) adds `email` and `phone`.
+
+## Pass display & templates
+
+Shape the guest pass page per pass — presentation only, strictly allowlisted server-side (unknown keys are a named 400; nothing here can touch entry validation, credentials, or link lifetime):
+
+```ts
+const created = await entrybit.org.passes.create({
+  first_name: "Dana",
+  phone: "0501234567",
+  arrival_date: "2026-08-12",
+  facility_id: 1,
+  template: "pool-guest", // start from a named preset…
+  display: { print: false, language: "he" }, // …and override per pass
+});
+console.log(created.display_applied); // what the guest's pass page will actually use
+```
+
+Templates are named, organization-scoped presets managed through `entrybit.org.passTemplates`:
+
+```ts
+await entrybit.org.passTemplates.upsert("pool-guest", {
+  show_code: false,
+  welcome_message: "Welcome! Show the QR at the pool gate.",
+});
+const templates = await entrybit.org.passTemplates.list();
+```
+
+Available options: `print` (offer the Print action), `show_code` (numeric code vs QR-only), `language` (`"auto" | "en" | "he"` — also pins the invite email/SMS language), `welcome_message` (plain text, sanitized and length-capped server-side — never HTML). Options freeze into the pass link at creation; editing a template affects only passes created afterwards.
+
+## Access control
+
+Controller discovery plus momentary actuation, for organization API keys with the dedicated scopes:
+
+```ts
+const controllers = await entrybit.org.controllers.list();
+const online = controllers.find((c) => c.online);
+const door = online?.doors?.find((d) => d.openable);
+
+if (online?.sn && door?.door_no != null) {
+  const res = await entrybit.org.doors.open({ controller_sn: online.sn, door_no: door.door_no });
+  console.log(res.status); // "sent" — written to the controller, NOT "opened"
+}
+
+await entrybit.org.relays.open({ controller_sn: "EB123456", relay_no: 0, duration: 10 });
+```
+
+Read this contract before wiring commands into anything automated:
+
+- **"sent" is not "opened"** — commands are fire-and-forget frames written to the controller's socket; physical execution is only observable via subsequent events.
+- **Offline is a hard stop** — an offline controller rejects with `ConflictError` (`code: "controller_offline"`). Commands are never queued or delivered on reconnect.
+- **Never retry automatically** — the SDK will not auto-retry these calls, and neither should you without live human intent: a duplicated open re-fires the lock.
+- **Momentary only** — hold-open, open-all, persistent lock/unlock, lockdown, reset, and firmware are deliberately not exposed to API keys.
 
 ## Error handling
 
