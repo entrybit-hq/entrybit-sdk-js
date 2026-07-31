@@ -48,4 +48,16 @@ if (stray.length > 0 || missing.length > 0) {
   for (const path of missing) console.error(`Missing from tarball: ${path}`);
   process.exit(1);
 }
-console.log(`Tarball OK: ${files.length} files, dist build plus docs only.`);
+
+// Build provenance: a published bundle must carry a real commit SHA, not the
+// "dev" source-run fallback or the "unknown" no-git fallback (CI always has
+// GITHUB_SHA; local builds have git).
+const { BUILD_SHA } = await import(new URL("../dist/index.js", import.meta.url));
+if (!/^[0-9a-f]{7,40}$/.test(BUILD_SHA)) {
+  console.error(
+    `dist/index.js was built with BUILD_SHA ${JSON.stringify(BUILD_SHA)} — rebuild from a git checkout (or CI) so the bundle carries its commit.`,
+  );
+  process.exit(1);
+}
+
+console.log(`Tarball OK: ${files.length} files, dist build plus docs only (build ${BUILD_SHA}).`);

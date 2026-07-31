@@ -15,11 +15,15 @@ Node >= 20.19, built-in `fetch`, dual ESM/CJS build via tsup.
 npm ci                 # install (from the repo root; this is NOT a workspace repo)
 npm run typecheck      # tsc --noEmit — includes test/, examples/, scripts/
 npm run lint           # ESLint, type-aware (no-floating-promises is on)
+npm run format         # Prettier, write mode (printWidth 100, defaults otherwise)
+npm run format:check   # Prettier check — enforced in CI; run after editing
 npm test               # vitest, one run
 npm run test:coverage  # vitest + v8 coverage, thresholds enforced (95/90/90/95)
 npm run build          # tsup -> dist/ (ESM + CJS + d.ts + d.cts)
+npm run size           # gzip size budget on dist/ — enforced in CI after build
+npm run bench          # vitest micro-benchmarks (local only, not a CI gate)
 npm run check:exports  # publint + @arethetypeswrong/cli against the packed tarball
-npm run pack:verify    # tarball content allowlist
+npm run pack:verify    # tarball allowlist + BUILD_SHA provenance check
 npm run generate       # regenerate src/generated/schema.d.ts from spec/openapi.json
 ```
 
@@ -51,7 +55,7 @@ Every gate above runs in CI; run the relevant ones before declaring a change don
 
 - **Zero runtime dependencies.** Never add one without explicit maintainer
   sign-off; the tarball allowlist and README advertise it.
-- **Header names are merged lowercased** (`mergeHeaders` in `src/http.ts`):
+- **Header names are merged lowercased** (`mergeHeaders` in `src/core/http.ts`):
   HTTP headers are case-insensitive, plain-object spreads are not. Any new
   header must go through that merge.
 - **Auth headers resolve per attempt** inside the retry loop. OAuth
@@ -70,14 +74,37 @@ Every gate above runs in CI; run the relevant ones before declaring a change don
   sync is manual; update both sides).
 - **Errors never carry request headers** — response data only. Never log or
   interpolate credentials anywhere, including error messages.
+- **Observability never leaks payloads.** Log lines, `"request"`/`"response"`
+  events and `debugInfo()` carry method/path/status/duration/request-id and
+  configuration _modes_ only — never headers, bodies, query values or
+  credential values. The README § Privacy section is a published contract:
+  any change to what the SDK transmits (`User-Agent`, `x-entrybit-client`)
+  must amend that section in the same PR.
+- **Event listeners can't break requests** — `ClientEvents.emit` swallows
+  listener exceptions; keep it that way.
 - **`src/version.ts` is bumped by release-please** (the
   `x-release-please-version` annotation). Don't bump it by hand.
+  `BUILD_SHA` next to it is injected by tsup (`define`) and falls back to
+  `"dev"` on source runs — the ambient declare lives in
+  `src/build-defines.d.ts` so it never leaks into the published d.ts.
 
 ## Conventions
 
 - Conventional-commit PR titles are enforced (`semantic-pr.yml`) — release
   automation derives versions and the changelog from them. `feat:` = minor,
   `fix:` = patch, `feat!:`/`BREAKING CHANGE:` = major.
+- **Naming**: camelCase for everything the SDK defines (methods, options,
+  properties, locals), PascalCase for classes/types, SCREAMING_SNAKE_CASE for
+  module-level constants, kebab-case file names. snake_case appears ONLY on
+  identifiers that mirror the wire format (generated schema types and the
+  hand-written types/params that must match it — e.g. `next_cursor`,
+  `first_name`). Two deliberate exceptions, do not "fix" them:
+  `oauth.userinfo()` mirrors the OIDC `/userinfo` endpoint name, and the
+  `ApiKeyHeader` type keeps the casing of the `apiKeyHeader` option it
+  belongs to (while error classes follow the ecosystem's `APIError` style).
+- Formatting is Prettier's (config: `printWidth: 100`, defaults otherwise);
+  `eslint-config-prettier` keeps the linter out of formatting. Run
+  `npm run format` rather than hand-wrapping lines.
 - TypeScript is strict, `exactOptionalPropertyTypes` is on: public optional
   props are declared `?: T | undefined`.
 - Releases: merging release-please's PR publishes from the `publish` job in

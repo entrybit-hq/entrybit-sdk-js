@@ -57,16 +57,16 @@ Runnable examples live in [`examples/`](./examples).
 
 Namespaces mirror the API paths:
 
-| Namespace | Endpoint | Auth |
-| --- | --- | --- |
-| `entrybit.passes` | `/api/v1/passes` — your own guest passes: `list`, `iterate`, `get`, `create`, `revoke` | OAuth token |
-| `entrybit.org.passes` | `/api/v1/org/passes` — organization-wide passes: `list`, `iterate`, `create`, `revoke` | API key |
-| `entrybit.org.members` | `/api/v1/org/members` — member directory: `list`, `iterate`, `get` | API key or OAuth token |
-| `entrybit.org.facilities` | `/api/v1/org/facilities` — `list` | API key |
-| `entrybit.me` | `/api/v1/me` — the authenticated member: `get` | OAuth token |
-| `entrybit.invites` | `/api/v1/invites` — pending invites: `list` | OAuth token |
-| `entrybit.facilities` | `/api/v1/facilities` — facilities you may invite guests to: `list` | OAuth token |
-| `entrybit.oauth` | `/api/oauth/*` — `exchangeCode`, `refresh`, `revoke`, `introspect`, `userinfo` | Body params (`userinfo`: OAuth token) |
+| Namespace                 | Endpoint                                                                               | Auth                                  |
+| ------------------------- | -------------------------------------------------------------------------------------- | ------------------------------------- |
+| `entrybit.passes`         | `/api/v1/passes` — your own guest passes: `list`, `iterate`, `get`, `create`, `revoke` | OAuth token                           |
+| `entrybit.org.passes`     | `/api/v1/org/passes` — organization-wide passes: `list`, `iterate`, `create`, `revoke` | API key                               |
+| `entrybit.org.members`    | `/api/v1/org/members` — member directory: `list`, `iterate`, `get`                     | API key or OAuth token                |
+| `entrybit.org.facilities` | `/api/v1/org/facilities` — `list`                                                      | API key                               |
+| `entrybit.me`             | `/api/v1/me` — the authenticated member: `get`                                         | OAuth token                           |
+| `entrybit.invites`        | `/api/v1/invites` — pending invites: `list`                                            | OAuth token                           |
+| `entrybit.facilities`     | `/api/v1/facilities` — facilities you may invite guests to: `list`                     | OAuth token                           |
+| `entrybit.oauth`          | `/api/oauth/*` — `exchangeCode`, `refresh`, `revoke`, `introspect`, `userinfo`         | Body params (`userinfo`: OAuth token) |
 
 For endpoints the typed surface does not model yet, `entrybit.request()` sends a request through the same auth/retry/error pipeline:
 
@@ -126,25 +126,25 @@ const fresh = await entrybit.oauth.refresh({
 
 Delegated (OAuth) scopes:
 
-| Scope | Grants |
-| --- | --- |
-| `openid` / `profile` / `email` | Identity claims |
-| `offline_access` | Refresh token |
-| `passes:read` | View your guest passes and facilities |
-| `passes:write` | Create and revoke your guest passes |
-| `invites:read` | View invitations addressed to you |
-| `member:read` | Your member profile, organization and apartment details |
-| `members:read` | View your organization's member directory (contact tier) |
+| Scope                          | Grants                                                   |
+| ------------------------------ | -------------------------------------------------------- |
+| `openid` / `profile` / `email` | Identity claims                                          |
+| `offline_access`               | Refresh token                                            |
+| `passes:read`                  | View your guest passes and facilities                    |
+| `passes:write`                 | Create and revoke your guest passes                      |
+| `invites:read`                 | View invitations addressed to you                        |
+| `member:read`                  | Your member profile, organization and apartment details  |
+| `members:read`                 | View your organization's member directory (contact tier) |
 
 Organization API-key scopes are selected when creating the key in **Settings → API keys** (least privilege), including:
 
-| Scope | Grants |
-| --- | --- |
-| `org:passes:read` | List organization guest passes |
-| `org:passes:write` | Create and revoke organization guest passes |
-| `org:members:read` | Member directory, basic tier |
-| `org:members:contact:read` | Member directory, adds `email` and `phone` |
-| `org:facilities:read` | List organization facilities |
+| Scope                      | Grants                                      |
+| -------------------------- | ------------------------------------------- |
+| `org:passes:read`          | List organization guest passes              |
+| `org:passes:write`         | Create and revoke organization guest passes |
+| `org:members:read`         | Member directory, basic tier                |
+| `org:members:contact:read` | Member directory, adds `email` and `phone`  |
+| `org:facilities:read`      | List organization facilities                |
 
 See the [API reference](https://docs.entrybit.net) for the complete, current list.
 
@@ -208,22 +208,22 @@ try {
 }
 ```
 
-| Class | HTTP | Extras |
-| --- | --- | --- |
-| `AuthenticationError` | 401 | RFC 6750 `invalid_token` |
-| `PermissionError` | 403 | `missingScope` parsed from `WWW-Authenticate` |
-| `NotFoundError` | 404 | subclass of `APIError` |
-| `ConflictError` | 409 | subclass of `APIError` |
-| `RateLimitError` | 429 | `retryAfter` (seconds, from `Retry-After` — not sent by every endpoint) |
-| `ValidationError` | 400 | server message |
-| `UnprocessableEntityError` | 422 | subclass of `ValidationError` |
-| `InternalServerError` | 5xx | subclass of `APIError` |
-| `APIError` | other non-2xx | `status`, `code`, `body` |
-| `TimeoutError` | — | `timeoutMs` elapsed; subclass of `ConnectionError` |
-| `ConnectionError` | — | no HTTP response (network failure) |
-| `UserAbortError` | — | your `AbortSignal` fired; never retried |
+| Class                      | HTTP          | Extras                                                                  |
+| -------------------------- | ------------- | ----------------------------------------------------------------------- |
+| `AuthenticationError`      | 401           | RFC 6750 `invalid_token`                                                |
+| `PermissionError`          | 403           | `missingScope` parsed from `WWW-Authenticate`                           |
+| `NotFoundError`            | 404           | subclass of `APIError`                                                  |
+| `ConflictError`            | 409           | subclass of `APIError`                                                  |
+| `RateLimitError`           | 429           | `retryAfter` (seconds, from `Retry-After` — not sent by every endpoint) |
+| `ValidationError`          | 400           | server message                                                          |
+| `UnprocessableEntityError` | 422           | subclass of `ValidationError`                                           |
+| `InternalServerError`      | 5xx           | subclass of `APIError`                                                  |
+| `APIError`                 | other non-2xx | `status`, `code`, `body`                                                |
+| `TimeoutError`             | —             | `timeoutMs` elapsed; subclass of `ConnectionError`                      |
+| `ConnectionError`          | —             | no HTTP response (network failure)                                      |
+| `UserAbortError`           | —             | your `AbortSignal` fired; never retried                                 |
 
-All of them expose `status`, `code`, `body`, and `headers` where available.
+All of them expose `status`, `code`, `body`, and `headers` where available, plus `requestId` — the API's `x-request-id` echo, also appended to the message — whenever the response carried one (see [Debugging](#debugging)).
 
 ## Retries & timeouts
 
@@ -254,25 +254,96 @@ const page = await entrybit.org.members.list(
 );
 ```
 
+## Debugging
+
+Everything here exists for support-ticket correlation and production observability — and none of it ever includes request headers or bodies.
+
+### Request IDs
+
+Errors expose the API's `x-request-id` echo as `err.requestId` and append it to the message, so a bare stack trace in a log aggregator is already support-ready:
+
+```ts
+try {
+  await entrybit.passes.get("gst_missing");
+} catch (err) {
+  if (err instanceof EntryBitError) {
+    console.error(err.message); // "Pass not found (request id: req_abc123)"
+    console.error(err.requestId); // "req_abc123"
+  }
+}
+```
+
+For successful calls, `requestWithMeta()` is the metadata-carrying sibling of the `request()` escape hatch:
+
+```ts
+const { data, requestId, status } = await entrybit.requestWithMeta<{ items: unknown[] }>({
+  method: "GET",
+  path: "/api/v1/org/passes",
+});
+```
+
+### Request/response events
+
+Subscribe to per-attempt lifecycle events for metrics and tracing. `"request"` fires once per HTTP attempt; `"response"` fires once per HTTP response — including responses the SDK is about to retry (`willRetry: true`). Requests that fail before response headers arrive (network failure, timeout, abort mid-connect) emit no `"response"` event; once headers have been received the event fires even if the body read then fails. Listener failures — synchronous throws and async rejections alike — are swallowed: an observer can never fail a request.
+
+```ts
+entrybit.on("response", (e) => {
+  console.log(`${e.method} ${e.path} -> ${e.status} in ${e.durationMs}ms (${e.requestId})`);
+  if (e.willRetry) console.warn(`retrying attempt ${e.attempt + 1}`);
+});
+```
+
+### Logging
+
+`logLevel: "info"` logs retry decisions; `"debug"` adds one line per response (method, path, status, duration, request id). Set the `ENTRYBIT_LOG` environment variable to change the level of a deployed binary without a code change — an explicit `logLevel` option always wins:
+
+```sh
+ENTRYBIT_LOG=debug node app.js
+```
+
+The `logger` option routes lines into pino, winston, consola or anything else with `error`/`warn`/`info`/`debug` methods.
+
+### `debugInfo()` and build provenance
+
+`entrybit.debugInfo()` returns a paste-into-a-bug-report snapshot: SDK version, the git commit the bundle was built from, resolved configuration and runtime facts. It names the auth _mode_ but never contains credential values:
+
+```ts
+console.log(entrybit.debugInfo());
+// {
+//   name: "@entrybit/sdk",
+//   version: "0.2.1",
+//   buildSha: "abc123456789",   // "dev" when running from source
+//   userAgent: "entrybit-sdk-js/0.2.1",
+//   baseUrl: "https://api.entrybit.net",
+//   authMode: "apiKey",
+//   maxRetries: 2,
+//   timeoutMs: 30000,
+//   ...
+// }
+```
+
+The same provenance is exported as constants — `VERSION` and `BUILD_SHA` — and rides in the `x-entrybit-client` header (`entrybit-sdk-js/0.2.1+abc123456789 …`) so support can see exactly which build produced a request.
+
 ## Configuration
 
 All client options:
 
-| Option | Default | Description |
-| --- | --- | --- |
-| `apiKey` | `ENTRYBIT_API_KEY` env var | Organization API key (`eb_sk_…`). `null` = explicitly unauthenticated. Mutually exclusive with the token options. |
-| `apiKeyHeader` | `"authorization"` | How the key is sent: `Authorization: Bearer` or `X-API-Key`. |
-| `accessToken` | — | Static user-delegated OAuth2 access token. |
-| `getAccessToken` | — | Callback returning a fresh access token (called per attempt, single-flighted). |
-| `baseUrl` | `https://api.entrybit.net` | API origin; override for testing. |
-| `maxRetries` | `2` | Retry attempts after the first try, for eligible requests. `0` disables. |
-| `timeoutMs` | `30_000` | Per-request timeout in milliseconds. |
-| `fetch` | `globalThis.fetch` | Custom `fetch` implementation. |
-| `fetchOptions` | — | Extra `RequestInit` fields for every call (e.g. an undici `dispatcher` for proxies/keep-alive). |
-| `defaultHeaders` | `{}` | Extra headers sent with every request (case-insensitive). |
-| `telemetry` | `true` | Send the `x-entrybit-client` runtime header. `false` omits it entirely. |
-| `dangerouslyAllowBrowser` | `false` | Allow an API key in a browser-like environment. |
-| `logger` / `logLevel` | `console` / `"warn"` | `"info"` logs retry decisions, `"debug"` logs each request — never headers or bodies. |
+| Option                    | Default                    | Description                                                                                                                |
+| ------------------------- | -------------------------- | -------------------------------------------------------------------------------------------------------------------------- |
+| `apiKey`                  | `ENTRYBIT_API_KEY` env var | Organization API key (`eb_sk_…`). `null` = explicitly unauthenticated. Mutually exclusive with the token options.          |
+| `apiKeyHeader`            | `"authorization"`          | How the key is sent: `Authorization: Bearer` or `X-API-Key`.                                                               |
+| `accessToken`             | —                          | Static user-delegated OAuth2 access token.                                                                                 |
+| `getAccessToken`          | —                          | Callback returning a fresh access token (called per attempt, single-flighted).                                             |
+| `baseUrl`                 | `https://api.entrybit.net` | API origin; override for testing.                                                                                          |
+| `maxRetries`              | `2`                        | Retry attempts after the first try, for eligible requests. `0` disables.                                                   |
+| `timeoutMs`               | `30_000`                   | Per-request timeout in milliseconds.                                                                                       |
+| `fetch`                   | `globalThis.fetch`         | Custom `fetch` implementation.                                                                                             |
+| `fetchOptions`            | —                          | Extra `RequestInit` fields for every call (e.g. an undici `dispatcher` for proxies/keep-alive).                            |
+| `defaultHeaders`          | `{}`                       | Extra headers sent with every request (case-insensitive).                                                                  |
+| `telemetry`               | `true`                     | Send the `x-entrybit-client` runtime header. `false` omits it entirely.                                                    |
+| `dangerouslyAllowBrowser` | `false`                    | Allow an API key in a browser-like environment.                                                                            |
+| `logger` / `logLevel`     | `console` / `"warn"`       | `"info"` logs retry decisions, `"debug"` logs each request — never headers or bodies. Default level honors `ENTRYBIT_LOG`. |
+| `appInfo`                 | —                          | `{ name, version?, url? }` identifying your integration in the `User-Agent` and telemetry headers.                         |
 
 For example, to point the client at a local server:
 
@@ -280,14 +351,24 @@ For example, to point the client at a local server:
 const entrybit = new EntryBit({ apiKey: null, baseUrl: "http://localhost:8001" });
 ```
 
+## Performance & footprint
+
+The SDK is built to disappear in your dependency tree and your flame graphs:
+
+- **Zero runtime dependencies** — the tarball ships `dist/` and docs, nothing else, and the only platform requirement is WHATWG `fetch`.
+- **A few KB gzipped** — enforced by a size budget in CI (`npm run size`), so it can only shrink or grow deliberately. `sideEffects: false` and dual ESM/CJS keep it fully tree-shakable.
+- **Lazy everywhere** — resource namespaces (`passes`, `org`, `oauth`, …) are constructed on first access; the event emitter only materializes when a listener registers.
+- **Pay-for-use observability** — with no listeners and `logLevel` below `"debug"`, the request hot path allocates no event payloads and builds no log strings.
+- **Measured, not asserted** — `npm run bench` compares `entrybit.passes.list()` against a raw `fetch` + `JSON.parse` baseline on your machine; the delta is the SDK's whole overhead (auth headers, retries, timeout plumbing, error mapping).
+
 ## Privacy — exactly what the SDK sends
 
 The SDK talks only to your configured `baseUrl` (redirects are treated as errors, so a request can never be forwarded elsewhere). Beyond your request data and credential, it adds two headers:
 
-| Header | Content | Control |
-| --- | --- | --- |
-| `User-Agent` | `entrybit-sdk-js/<version>` — SDK version only | Override via `defaultHeaders` |
-| `x-entrybit-client` | SDK version, runtime version, OS/arch (e.g. `entrybit-sdk-js/0.1.0 node/22.14.0 (linux; x64)`) — used to triage support issues | Disable with `telemetry: false` |
+| Header              | Content                                                                                                                                                                                         | Control                         |
+| ------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------- |
+| `User-Agent`        | `entrybit-sdk-js/<version>` — SDK version, plus your `appInfo` when configured                                                                                                                  | Override via `defaultHeaders`   |
+| `x-entrybit-client` | SDK version + build commit, runtime version, OS/arch, plus your `appInfo` when configured (e.g. `entrybit-sdk-js/0.2.1+abc123456789 node/22.14.0 (linux; x64)`) — used to triage support issues | Disable with `telemetry: false` |
 
 There is no other telemetry of any kind: no analytics, no phone-home, no error reporting. Log output (`logLevel`) never includes headers or bodies, and SDK errors never carry your request credentials — only response data:
 
@@ -301,9 +382,13 @@ const entrybit = new EntryBit({ apiKey: process.env.ENTRYBIT_API_KEY!, telemetry
 npm ci                 # install
 npm run typecheck      # tsc --noEmit
 npm run lint           # eslint (type-aware)
+npm run format         # prettier --write
+npm run format:check   # prettier --check (enforced in CI)
 npm test               # vitest
 npm run test:coverage  # vitest + enforced coverage thresholds
 npm run build          # tsup (ESM + CJS)
+npm run size           # gzip size budget on dist/ (enforced in CI)
+npm run bench          # micro-benchmarks (local only)
 npm run check:exports  # publint + arethetypeswrong on the packed tarball
 ```
 

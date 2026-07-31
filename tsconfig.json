@@ -19,7 +19,8 @@
     "skipLibCheck": true,
     "declaration": true,
     "noEmit": true,
-    "baseUrl": ".",
+    // No baseUrl: `paths` resolves relative to this file since TS 4.1, and
+    // baseUrl is deprecated in TS 6 (TS5101) and removed in TS 7 (TS5102).
     "paths": {
       "@entrybit/sdk": ["./src/index.ts"]
     }
@@ -28,6 +29,7 @@
     "src",
     "test",
     "examples",
+    "bench",
     "scripts",
     "tsup.config.ts",
     "vitest.config.ts",

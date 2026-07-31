@@ -1,6 +1,6 @@
 // Client
 export { EntryBit } from "./client.js";
-export { VERSION } from "./version.js";
+export { VERSION, BUILD_SHA } from "./version.js";
 
 // Errors
 export {
@@ -36,12 +36,18 @@ export { OAuth } from "./resources/oauth.js";
 // Public types (one file per domain under ./types/)
 export type {
   ApiKeyHeader,
+  AppInfo,
+  ClientDebugInfo,
+  ClientEventMap,
   ClientOptions,
   Logger,
   LogLevel,
+  RequestEvent,
+  ResponseEvent,
   QueryValue,
   RequestOptions,
   RequestSpec,
+  ResponseWithMeta,
   CursorPage,
   Pass,
   PassPage,

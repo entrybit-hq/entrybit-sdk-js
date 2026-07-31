@@ -17,17 +17,19 @@ npm ci
 
 ## Development workflow
 
-| Command | Purpose |
-| --- | --- |
-| `npm run typecheck` | Typecheck with `tsc --noEmit` (includes `test/`, `examples/`) |
-| `npm run lint` | Lint with ESLint (type-aware) |
-| `npm test` | Run the Vitest suite once |
-| `npm run test:watch` | Run tests in watch mode |
-| `npm run test:coverage` | Run tests with enforced coverage thresholds |
-| `npm run build` | Build ESM + CJS bundles with tsup |
-| `npm run check:exports` | Validate the packed tarball with publint + arethetypeswrong |
-| `npm run generate` | Regenerate `src/generated/schema.d.ts` from the committed `spec/openapi.json` |
-| `npm run regenerate` | Refetch the published OpenAPI spec, then regenerate |
+| Command                 | Purpose                                                                       |
+| ----------------------- | ----------------------------------------------------------------------------- |
+| `npm run typecheck`     | Typecheck with `tsc --noEmit` (includes `test/`, `examples/`)                 |
+| `npm run lint`          | Lint with ESLint (type-aware)                                                 |
+| `npm run format`        | Format with Prettier (write mode)                                             |
+| `npm run format:check`  | Check formatting with Prettier (enforced in CI)                               |
+| `npm test`              | Run the Vitest suite once                                                     |
+| `npm run test:watch`    | Run tests in watch mode                                                       |
+| `npm run test:coverage` | Run tests with enforced coverage thresholds                                   |
+| `npm run build`         | Build ESM + CJS bundles with tsup                                             |
+| `npm run check:exports` | Validate the packed tarball with publint + arethetypeswrong                   |
+| `npm run generate`      | Regenerate `src/generated/schema.d.ts` from the committed `spec/openapi.json` |
+| `npm run regenerate`    | Refetch the published OpenAPI spec, then regenerate                           |
 
 ## Generated code
 
@@ -49,7 +51,7 @@ Every code sample in `README.md` is transcribed into `test/readme-samples.ts`, w
 - **Use a conventional-commit title** (enforced by CI): `feat: …`, `fix: …`, `docs: …`, `chore: …`, with `feat!:` or a `BREAKING CHANGE:` footer for breaking changes. Release automation derives version bumps and the changelog from these — a non-conventional squash-merge title produces no release.
 - Keep changes focused; unrelated refactors belong in separate pull requests.
 - Add or update tests for any behavior change.
-- All CI gates must pass: generate (no drift), lint, typecheck, tests + coverage, build, exports check.
+- All CI gates must pass: generate (no drift), lint, format check, typecheck, tests + coverage, build, size budget, exports check.
 - Public API changes require documentation updates in the README (and the matching `test/readme-samples.ts` block). The changelog is generated — do not edit `CHANGELOG.md` by hand.
 - Breaking changes to the exported surface are only accepted with a clear migration note.
 

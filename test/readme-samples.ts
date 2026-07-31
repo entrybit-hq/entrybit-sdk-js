@@ -7,6 +7,7 @@
  */
 import {
   EntryBit,
+  EntryBitError,
   AuthenticationError,
   PermissionError,
   NotFoundError,
@@ -158,4 +159,40 @@ export async function errorHandling(entrybit: EntryBit): Promise<void> {
 // README § Requirements — bring-your-own-fetch
 export function customFetch(myFetch: typeof globalThis.fetch): EntryBit {
   return new EntryBit({ fetch: myFetch });
+}
+
+// README § Debugging — request IDs on errors
+export async function requestIdsOnErrors(entrybit: EntryBit): Promise<void> {
+  try {
+    await entrybit.passes.get("gst_missing");
+  } catch (err) {
+    if (err instanceof EntryBitError) {
+      console.error(err.message); // "Pass not found (request id: req_abc123)"
+      console.error(err.requestId); // "req_abc123"
+    }
+  }
+}
+
+// README § Debugging — requestWithMeta
+export async function requestIdsOnSuccesses(entrybit: EntryBit): Promise<void> {
+  const { data, requestId, status } = await entrybit.requestWithMeta<{ items: unknown[] }>({
+    method: "GET",
+    path: "/api/v1/org/passes",
+  });
+  void data;
+  void requestId;
+  void status;
+}
+
+// README § Debugging — request/response events
+export function responseEvents(entrybit: EntryBit): void {
+  entrybit.on("response", (e) => {
+    console.log(`${e.method} ${e.path} -> ${e.status} in ${e.durationMs}ms (${e.requestId})`);
+    if (e.willRetry) console.warn(`retrying attempt ${e.attempt + 1}`);
+  });
+}
+
+// README § Debugging — debugInfo()
+export function debugSnapshot(entrybit: EntryBit): void {
+  console.log(entrybit.debugInfo());
 }

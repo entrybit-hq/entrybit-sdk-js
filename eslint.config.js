@@ -1,4 +1,5 @@
 import js from "@eslint/js";
+import prettier from "eslint-config-prettier/flat";
 import tseslint from "typescript-eslint";
 
 export default tseslint.config(
@@ -49,4 +50,7 @@ export default tseslint.config(
       },
     },
   },
+  // Last: turn off any stylistic rule Prettier owns. Formatting is enforced
+  // by `npm run format:check`, not the linter.
+  prettier,
 );

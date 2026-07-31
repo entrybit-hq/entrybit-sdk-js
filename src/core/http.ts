@@ -5,17 +5,28 @@ import {
   UserAbortError,
   parseRetryAfter,
 } from "../errors/index.js";
-import type { ApiKeyHeader, ClientOptions, Logger, LogLevel } from "../types/client.js";
-import type { RequestSpec } from "../types/requests.js";
+import type {
+  ApiKeyHeader,
+  ClientDebugInfo,
+  ClientOptions,
+  Logger,
+  LogLevel,
+} from "../types/client.js";
+import type { RequestSpec, ResponseWithMeta } from "../types/requests.js";
+import { BUILD_SHA, VERSION } from "../version.js";
 import { backoffDelayMs, sleep } from "./backoff.js";
+import { ClientEvents } from "./events.js";
 import { buildQuery } from "./query.js";
-import { errorFromResponse, readSuccessBody } from "./response.js";
+import { errorFromResponse, readSuccessBody, requestIdFrom, withRequestId } from "./response.js";
 import {
   CLIENT_TELEMETRY_HEADER,
   USER_AGENT,
   clientTelemetry,
+  formatAppInfo,
   isBrowserLike,
   readEnvApiKey,
+  readEnvLogLevel,
+  runtimeInfo,
 } from "./runtime.js";
 
 export const DEFAULT_BASE_URL = "https://api.entrybit.net";
@@ -79,17 +90,29 @@ function mergeHeaders(
 
 /** Internal HTTP core: auth, retries, error mapping. Reach it via `EntryBit.request()`. */
 export class HttpClient {
+  // Materialized on first `on()` — a client nobody observes allocates no
+  // emitter, and the hot path (see emitResponse) skips event work entirely.
+  private eventsInstance: ClientEvents | undefined;
+
+  /** Observability events (`"request"` / `"response"`) — reach it via `EntryBit.on()`. */
+  get events(): ClientEvents {
+    return (this.eventsInstance ??= new ClientEvents());
+  }
+
   private readonly baseUrl: string;
   private readonly maxRetries: number;
   private readonly timeoutMs: number;
   private readonly fetchFn: typeof globalThis.fetch;
+  private readonly customFetch: boolean;
   private readonly fetchOptions: (RequestInit & Record<string, unknown>) | undefined;
   private readonly defaultHeaders: Record<string, string>;
+  private readonly userAgent: string;
   private readonly telemetry: string | undefined;
   private readonly apiKey: string | undefined;
   private readonly apiKeyHeader: ApiKeyHeader;
   private readonly accessToken: string | undefined;
   private readonly getAccessToken: (() => string | Promise<string>) | undefined;
+  private readonly authMode: ClientDebugInfo["authMode"];
   private readonly logger: Logger;
   private readonly logLevel: LogLevel;
   private tokenInFlight: Promise<string> | undefined;
@@ -126,11 +149,35 @@ export class HttpClient {
         "Refusing to use an organization API key in a browser-like environment: `eb_sk_…` keys are secrets and would be exposed to every visitor. Use user-delegated OAuth tokens in browsers, or pass `dangerouslyAllowBrowser: true` if you accept the risk.",
       );
     }
+    if (options.appInfo) {
+      // appInfo flows into HTTP header values; fail fast on bytes fetch
+      // would reject at request time (which the retry loop would then
+      // misread as a network failure).
+      for (const field of ["name", "version", "url"] as const) {
+        const value = options.appInfo[field];
+        if (value !== undefined && /[\r\n\0]/.test(value)) {
+          throw new EntryBitError(
+            `\`appInfo.${field}\` must not contain CR, LF, or NUL characters — it is sent in HTTP header values.`,
+          );
+        }
+      }
+      if (!options.appInfo.name.trim()) {
+        throw new EntryBitError("`appInfo.name` must be a non-empty string.");
+      }
+    }
 
     this.apiKey = apiKey ?? undefined;
     this.apiKeyHeader = options.apiKeyHeader ?? "authorization";
     this.accessToken = options.accessToken;
     this.getAccessToken = options.getAccessToken;
+    this.authMode =
+      this.apiKey !== undefined
+        ? "apiKey"
+        : this.getAccessToken
+          ? "getAccessToken"
+          : this.accessToken !== undefined
+            ? "accessToken"
+            : "none";
     this.baseUrl = normalizeBaseUrl(options.baseUrl ?? DEFAULT_BASE_URL);
     this.maxRetries = options.maxRetries ?? 2;
     this.timeoutMs = options.timeoutMs ?? 30_000;
@@ -143,18 +190,90 @@ export class HttpClient {
     // Detach from any receiver: calling a native `fetch` with a foreign
     // `this` throws "Illegal invocation" on browsers and edge runtimes.
     this.fetchFn = fetchFn.bind(globalThis);
+    // Identity check so `fetch: globalThis.fetch` (wrappers forwarding the
+    // option unconditionally) still reports "global" in debugInfo().
+    this.customFetch = options.fetch !== undefined && options.fetch !== globalThis.fetch;
     this.fetchOptions = options.fetchOptions;
     this.defaultHeaders = options.defaultHeaders ?? {};
+    this.userAgent = options.appInfo
+      ? `${USER_AGENT} ${formatAppInfo(options.appInfo)}`
+      : USER_AGENT;
     // Opt-out supported for organizations that do not want runtime details
     // sent (README § Privacy documents exactly what this contains).
-    this.telemetry = options.telemetry === false ? undefined : clientTelemetry();
+    this.telemetry = options.telemetry === false ? undefined : clientTelemetry(options.appInfo);
     this.logger = options.logger ?? console;
-    this.logLevel = options.logLevel ?? "warn";
+    // Explicit option > ENTRYBIT_LOG environment variable > "warn".
+    this.logLevel = options.logLevel ?? readEnvLogLevel() ?? "warn";
+  }
+
+  /**
+   * Diagnostic snapshot for bug reports: resolved configuration, build
+   * provenance and runtime facts. Names the auth *mode* only — never a
+   * credential value.
+   */
+  debugInfo(): ClientDebugInfo {
+    return {
+      name: "@entrybit/sdk",
+      version: VERSION,
+      buildSha: BUILD_SHA,
+      userAgent: this.userAgent,
+      baseUrl: this.baseUrl,
+      authMode: this.authMode,
+      // Selected from literals on purpose: code scanners taint-track any
+      // value read off an api-key-named field into logging sinks, and
+      // debugInfo() is designed to be logged. The option only feeds the
+      // comparison, so no tracked flow reaches the snapshot.
+      authHeaderName:
+        this.authMode === "apiKey" && this.apiKeyHeader === "x-api-key"
+          ? "x-api-key"
+          : "authorization",
+      maxRetries: this.maxRetries,
+      timeoutMs: this.timeoutMs,
+      telemetry: this.telemetry !== undefined,
+      logLevel: this.logLevel,
+      fetch: this.customFetch ? "custom" : "global",
+      runtime: runtimeInfo(),
+    };
   }
 
   private log(level: Exclude<LogLevel, "off">, message: string): void {
     if (LOG_RANK[level] <= LOG_RANK[this.logLevel]) {
       this.logger[level](`[entrybit-sdk] ${message}`);
+    }
+  }
+
+  /**
+   * Emits the per-attempt `"response"` event and its matching debug log line
+   * — one call per HTTP response received, at the moment the attempt's
+   * outcome (retry or settle) is known. Pay-for-use: with no listeners and
+   * logLevel below debug, this allocates nothing.
+   */
+  private emitResponse(
+    spec: RequestSpec,
+    status: number,
+    requestId: string | undefined,
+    startedAt: number,
+    attempt: number,
+    willRetry: boolean,
+  ): void {
+    if (this.eventsInstance) {
+      this.eventsInstance.emit("response", {
+        method: spec.method,
+        path: spec.path,
+        status,
+        requestId,
+        durationMs: Date.now() - startedAt,
+        attempt,
+        willRetry,
+      });
+    }
+    if (LOG_RANK.debug <= LOG_RANK[this.logLevel]) {
+      this.log(
+        "debug",
+        `${spec.method} ${spec.path} -> ${status} (${Date.now() - startedAt}ms` +
+          `${requestId !== undefined ? `, request id: ${requestId}` : ""}` +
+          `${willRetry ? ", will retry" : ""})`,
+      );
     }
   }
 
@@ -193,6 +312,11 @@ export class HttpClient {
   }
 
   async request<T>(spec: RequestSpec): Promise<T> {
+    const { data } = await this.requestWithMeta<T>(spec);
+    return data;
+  }
+
+  async requestWithMeta<T>(spec: RequestSpec): Promise<ResponseWithMeta<T>> {
     const url = `${this.baseUrl}${spec.path}${buildQuery(spec.query)}`;
     const retryable = spec.idempotent ?? spec.method === "GET";
     const timeoutMs = spec.timeoutMs ?? this.timeoutMs;
@@ -200,7 +324,7 @@ export class HttpClient {
 
     const baseHeaders: Record<string, string> = {
       accept: "application/json",
-      "user-agent": USER_AGENT,
+      "user-agent": this.userAgent,
       ...(this.telemetry !== undefined ? { [CLIENT_TELEMETRY_HEADER]: this.telemetry } : {}),
     };
     let bodyText: string | undefined;
@@ -236,15 +360,18 @@ export class HttpClient {
       );
       const timeoutSignal = AbortSignal.timeout(timeoutMs);
       const signal = spec.signal ? AbortSignal.any([spec.signal, timeoutSignal]) : timeoutSignal;
+      this.eventsInstance?.emit("request", { method: spec.method, path: spec.path, attempt });
       const startedAt = Date.now();
 
       let res: Response;
       try {
         res = await this.fetchFn(url, {
-          // A JSON API never legitimately redirects the SDK; following one
-          // could forward the X-API-Key credential cross-origin.
-          redirect: "error",
           ...this.fetchOptions,
+          // After the fetchOptions spread on purpose: a JSON API never
+          // legitimately redirects the SDK, and following one could forward
+          // the X-API-Key credential cross-origin — so `redirect` is
+          // SDK-owned and always wins, like method/headers/body/signal.
+          redirect: "error",
           method: spec.method,
           headers,
           ...(bodyText !== undefined ? { body: bodyText } : {}),
@@ -281,39 +408,57 @@ export class HttpClient {
         throw new ConnectionError(`Request to ${spec.path} failed: ${String(cause)}`, { cause });
       }
 
-      this.log(
-        "debug",
-        `${spec.method} ${spec.path} -> ${res.status} (${Date.now() - startedAt}ms)`,
-      );
+      const requestId = requestIdFrom(res);
 
       if (res.ok) {
-        if (res.status === 204) return undefined as T;
+        if (res.status === 204) {
+          this.emitResponse(spec, res.status, requestId, startedAt, attempt, false);
+          return { data: undefined as T, status: res.status, requestId, headers: res.headers };
+        }
         try {
-          return (await readSuccessBody(res)) as T;
+          const data = (await readSuccessBody(res)) as T;
+          this.emitResponse(spec, res.status, requestId, startedAt, attempt, false);
+          return { data, status: res.status, requestId, headers: res.headers };
         } catch (cause) {
           // Malformed JSON is already a mapped SDK error; rethrow as-is.
-          if (cause instanceof EntryBitError) throw cause;
+          if (cause instanceof EntryBitError) {
+            this.emitResponse(spec, res.status, requestId, startedAt, attempt, false);
+            throw cause;
+          }
+          // A response was received, so failures from here on keep its
+          // metadata (README: requestId rides on every error "whenever the
+          // response carried one").
+          const meta = { status: res.status, headers: res.headers, requestId, cause };
           // A caller abort mid-body honors the documented signal contract.
           if (spec.signal?.aborted) {
-            throw new UserAbortError(`Request to ${spec.path} was aborted by the caller.`, {
-              cause,
-            });
+            this.emitResponse(spec, res.status, requestId, startedAt, attempt, false);
+            throw new UserAbortError(
+              withRequestId(`Request to ${spec.path} was aborted by the caller.`, requestId),
+              meta,
+            );
           }
           // Anything else means the body read itself failed (timeout fired
           // mid-body, connection reset). Retry when eligible.
           if (retryable && attempt < maxRetries) {
+            this.emitResponse(spec, res.status, requestId, startedAt, attempt, true);
             await sleep(backoffDelayMs(attempt), spec.signal);
             attempt += 1;
             continue;
           }
+          this.emitResponse(spec, res.status, requestId, startedAt, attempt, false);
           throw new ConnectionError(
-            `Reading the response body from ${spec.path} failed: ${String(cause)}`,
-            { cause },
+            withRequestId(
+              `Reading the response body from ${spec.path} failed: ${String(cause)}`,
+              requestId,
+            ),
+            meta,
           );
         }
       }
 
       const retryableStatus = res.status === 429 || res.status >= 500;
+      let willRetry = false;
+      let delayMs = 0;
       if (retryable && attempt < maxRetries && retryableStatus) {
         // Retry-After is honored on 429 AND 5xx (RFC 9110's original use
         // case — e.g. a 503 during maintenance).
@@ -321,9 +466,14 @@ export class HttpClient {
         if (retryAfter !== undefined && retryAfter * 1000 > RETRY_AFTER_CAP_MS) {
           // The server asked for a longer wait than the SDK will hold the
           // caller: surface the mapped error (carrying the unclamped value).
-          throw await errorFromResponse(res);
+          willRetry = false;
+        } else {
+          willRetry = true;
+          delayMs = retryAfter !== undefined ? retryAfter * 1000 : backoffDelayMs(attempt);
         }
-        const delayMs = retryAfter !== undefined ? retryAfter * 1000 : backoffDelayMs(attempt);
+      }
+      this.emitResponse(spec, res.status, requestId, startedAt, attempt, willRetry);
+      if (willRetry) {
         this.log(
           "info",
           `retrying ${spec.method} ${spec.path} in ${Math.round(delayMs)}ms (attempt ${attempt + 1}/${maxRetries}): HTTP ${res.status}`,
