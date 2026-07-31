@@ -32,6 +32,8 @@ export { Invites } from "./resources/invites.js";
 export { Me } from "./resources/me.js";
 export { Org } from "./resources/org.js";
 export { OAuth } from "./resources/oauth.js";
+export { OrgPassTemplates } from "./resources/pass-templates.js";
+export { OrgControllers, OrgDoors, OrgRelays } from "./resources/access.js";
 
 // Public types (one file per domain under ./types/)
 export type {
@@ -60,6 +62,14 @@ export type {
   ListMembersParams,
   GetMemberParams,
   Facility,
+  PassDisplayOptions,
+  PassTemplate,
+  CommandAccepted,
+  Controller,
+  ControllerDoor,
+  DoorOpenRequest,
+  RelayCloseRequest,
+  RelayOpenRequest,
   OrgInvite,
   MeResponse,
   TokenResponse,
